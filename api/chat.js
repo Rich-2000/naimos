@@ -15,11 +15,17 @@ export default async function handler(req, res) {
   try {
     const { messages } = req.body;
 
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: 'Invalid request: messages array is required.' });
+    }
+
+    const OPENAI_KEY = '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';
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+        'Authorization': `Bearer ${OPENAI_KEY}`
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
