@@ -1,0 +1,8 @@
+{
+  "name": "naimos-ams",
+  "version": "1.0.0",
+  "description": "NAIMOS Anti-Galamsey Smart Management System",
+  "engines": {
+    "node": ">=18"
+  }
+}

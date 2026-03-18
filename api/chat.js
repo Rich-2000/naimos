@@ -1,8 +1,9 @@
 // /api/chat.js — NAIMOS Gemini AI Proxy
 // Vercel serverless function — key stays on server, never in the browser
+// IMPORTANT: Uses CommonJS (module.exports) — required for Vercel Node.js functions
 // Set GEMINI_API_KEY in: Vercel Dashboard → Project → Settings → Environment Variables
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -64,4 +65,4 @@ export default async function handler(req, res) {
     console.error('Handler error:', err);
     return res.status(500).json({ error: err.message });
   }
-}
+};
