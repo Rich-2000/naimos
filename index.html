@@ -4395,6 +4395,11 @@ async function loadPCForestAlerts(regionKey) {
 
 
 
+// ===== AI CHAT SYSTEM — NAIMOS GEMINI (via /api/chat proxy) =====
+// Routes through Vercel serverless function to avoid CORS issues.
+// Set GEMINI_API_KEY in Vercel → Settings → Environment Variables.
+// For local dev: also works via direct Gemini call (Gemini supports browser CORS).
+
 const NAIMOS_SYSTEM_PROMPT = `You are NAIMOS-AI, the intelligence and analysis system for Ghana's National Anti-Illegal Mining Operations Secretariat (NAIMOS).
 
 Your role: Analyze and respond to queries about illegal galamsey (illegal artisanal mining) across Ghana's 16 regions, using data from CERSGIS, Sentinel-1 SAR, NASA FIRMS, Landsat, and Ghana EPA sensor networks.
@@ -4411,19 +4416,73 @@ Current operational context:
 
 Respond as a sharp military-grade intelligence AI: concise (under 180 words), data-driven, operational focus. Include confidence percentages when relevant. Give actionable recommendations. Prioritize environmental protection and operational effectiveness for NAIMOS.`;
 
-// Gemini keeps conversation as array of {role, parts}
+// Gemini conversation history: array of {role, parts}
 let geminiHistory = [];
+
+// Detect if running on Vercel (has /api/chat proxy) or local file
+function getAPIEndpoint() {
+  const isLocalFile = window.location.protocol === 'file:';
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  // On Vercel deployment: use the serverless proxy (no CORS issues, key stays secret)
+  // On localhost dev server: also use proxy if available, else fall back to direct Gemini
+  // On file://: must use direct Gemini call (no server available)
+  if (isLocalFile) return 'direct';
+  return '/api/chat'; // works on Vercel and any server that hosts this file
+}
+
+async function callGeminiDirect(contents) {
+  // Direct browser → Gemini call (Gemini allows browser CORS with API key in URL)
+  // This is the fallback for file:// protocol or when /api/chat is unavailable
+  const GEMINI_API_KEY = 'AIzaSyA8zIXiP7GyUoqUvQNAnJF1AuJxIGmiHn8';
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+  const body = {
+    system_instruction: { parts: [{ text: NAIMOS_SYSTEM_PROMPT }] },
+    contents,
+    generationConfig: { temperature: 0.7, maxOutputTokens: 512, topP: 0.9 },
+    safetySettings: [
+      { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+    ]
+  };
+
+  const resp = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: makeAbortSignal(20000)
+  });
+
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error?.message || `Gemini HTTP ${resp.status}`);
+  return data;
+}
+
+async function callGeminiProxy(contents) {
+  // Server-side proxy call → /api/chat (Vercel function)
+  // Key stays on server, no CORS issues, works everywhere
+  const resp = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents,
+      system_instruction: { parts: [{ text: NAIMOS_SYSTEM_PROMPT }] }
+    }),
+    signal: makeAbortSignal(20000)
+  });
+
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error || `Proxy HTTP ${resp.status}`);
+  return data;
+}
 
 async function sendAIMessage() {
   const input = document.getElementById('ai-input');
   const btn   = document.getElementById('send-btn');
   const text  = input.value.trim();
   if (!text) return;
-
-  if (GEMINI_API_KEY === 'AIzaSyA8zIXiP7GyUoqUvQNAnJF1AuJxIGmiHn8') {
-    appendMsg('⚠ No Gemini API key set. Get your FREE key at aistudio.google.com/app/apikey', 'ai');
-    return;
-  }
 
   input.value = '';
   btn.disabled = true;
@@ -4435,72 +4494,64 @@ async function sendAIMessage() {
 
   geminiHistory.push({ role: 'user', parts: [{ text }] });
 
-  const geminiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-  const geminiBody = JSON.stringify({
-    system_instruction: { parts: [{ text: NAIMOS_SYSTEM_PROMPT }] },
-    contents: geminiHistory,
-    generationConfig: { temperature: 0.7, maxOutputTokens: 512, topP: 0.9 },
-    safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-    ]
-  });
+  // Keep history manageable
+  if (geminiHistory.length > 20) geminiHistory = geminiHistory.slice(-20);
 
-  // Gemini DOES support CORS from browsers — it sets Access-Control-Allow-Origin: *
-  // So direct fetch works. The only failure case is file:// protocol or network issues.
-  const attempts = [
-    // 1. Direct (works on all hosted environments — Gemini allows browser CORS)
-    async () => {
-      const r = await fetch(geminiEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: geminiBody,
-        signal: makeAbortSignal(20000)
-      });
-      return r.json();
-    },
-    // 2. Via corsproxy.io (fallback for file:// or blocked networks)
-    async () => {
-      const r = await fetch(`https://corsproxy.io/?${encodeURIComponent(geminiEndpoint)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: geminiBody,
-        signal: makeAbortSignal(22000)
-      });
-      return r.json();
-    }
-  ];
+  const apiMode = getAPIEndpoint();
+  let data = null;
+  let lastError = null;
 
-  let success = false;
-  for (const attempt of attempts) {
+  // Strategy 1: Use /api/chat proxy if on a server
+  if (apiMode === '/api/chat') {
     try {
-      const data = await attempt();
-      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Signal lost. Retry.';
-      geminiHistory.push({ role: 'model', parts: [{ text: reply }] });
-      if (geminiHistory.length > 20) geminiHistory = geminiHistory.slice(-20);
-      typingEl.classList.remove('visible');
-      appendMsg(reply, 'ai');
-      success = true;
-      break;
-    } catch(e) {
-      console.warn('Gemini attempt failed:', e.message);
+      data = await callGeminiProxy(geminiHistory);
+    } catch (e) {
+      lastError = e;
+      console.warn('Proxy call failed, trying direct:', e.message);
+      // Fallback to direct if proxy fails (e.g. local dev without Vercel CLI)
+      try {
+        data = await callGeminiDirect(geminiHistory);
+      } catch (e2) {
+        lastError = e2;
+      }
+    }
+  } else {
+    // file:// protocol — direct only
+    try {
+      data = await callGeminiDirect(geminiHistory);
+    } catch (e) {
+      lastError = e;
     }
   }
 
-  if (!success) {
-    typingEl.classList.remove('visible');
-    geminiHistory.pop(); // remove failed user msg
-    appendMsg(
-      '⚠ NAIMOS-AI temporarily offline.\n\n' +
-      'If opening as a local file (file://), host on a server:\n' +
-      '• VS Code → "Live Server" extension → Click "Go Live"\n' +
-      '• Or drag the file to a browser served via localhost\n\n' +
-      'Gemini API key is set and valid. This is a network/CORS issue only.',
-      'ai'
-    );
+  typingEl.classList.remove('visible');
+
+  if (data) {
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text
+      || data.candidates?.[0]?.output
+      || 'Signal lost. No response content. Retry.';
+    geminiHistory.push({ role: 'model', parts: [{ text: reply }] });
+    appendMsg(reply, 'ai');
+  } else {
+    // Remove the failed user message from history
+    geminiHistory.pop();
+
+    const isFile = window.location.protocol === 'file:';
+    if (isFile) {
+      appendMsg(
+        '⚠ NAIMOS-AI: CORS restriction on file:// protocol.\n\n' +
+        'To use the AI chat, serve this file from a local server:\n' +
+        '• VS Code → Install "Live Server" → Click "Go Live" (bottom right)\n' +
+        '• Or run: npx serve . in this folder\n\n' +
+        'On Vercel deployment this works automatically.',
+        'ai'
+      );
+    } else {
+      appendMsg(
+        `⚠ NAIMOS-AI temporarily offline.\n\nError: ${lastError?.message || 'Unknown error'}\n\nTry again in a moment.`,
+        'ai'
+      );
+    }
   }
 
   btn.disabled = false;
@@ -4519,9 +4570,10 @@ function appendMsg(text, type) {
     String(now.getMinutes()).padStart(2,'0') + ':' +
     String(now.getSeconds()).padStart(2,'0');
   div.appendChild(meta);
-  // Render text with line breaks preserved
   const content = document.createElement('span');
-  content.innerHTML = text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  content.innerHTML = text
+    .replace(/\n/g, '<br>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   div.appendChild(content);
   feed.appendChild(div);
   scrollChat();

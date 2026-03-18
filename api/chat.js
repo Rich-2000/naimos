@@ -1,3 +1,7 @@
+// /api/chat.js — NAIMOS Gemini AI Proxy for Vercel
+// Replaces the OpenAI handler with Google Gemini 1.5 Flash
+// Set GEMINI_API_KEY in Vercel → Settings → Environment Variables
+
 export default async function handler(req, res) {
   // CORS headers — allow requests from your Vercel frontend
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -9,41 +13,57 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { messages } = req.body;
+    const { contents, system_instruction } = req.body;
 
-    if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({ error: 'Invalid request: messages array required.' });
-    }
-
-    // API key comes from Vercel Environment Variables (never hardcoded)
-    const OPENAI_KEY = process.env.OPENAI_API_KEY;
-
-    if (!OPENAI_KEY) {
-      return res.status(500).json({
-        error: 'OpenAI API key not configured. Add OPENAI_API_KEY in Vercel → Settings → Environment Variables.'
+    if (!contents || !Array.isArray(contents)) {
+      return res.status(400).json({
+        error: 'Invalid request: contents array required.'
       });
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_KEY}`
+    // API key comes from Vercel Environment Variables (never hardcoded)
+    const GEMINI_KEY = process.env.GEMINI_API_KEY;
+
+    if (!GEMINI_KEY) {
+      return res.status(500).json({
+        error: 'Gemini API key not configured. Add GEMINI_API_KEY in Vercel → Settings → Environment Variables.'
+      });
+    }
+
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
+
+    const body = {
+      contents,
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 512,
+        topP: 0.9
       },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages,
-        max_tokens: 512,
-        temperature: 0.7
-      })
+      safetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+      ]
+    };
+
+    // Only add system_instruction if provided
+    if (system_instruction) {
+      body.system_instruction = system_instruction;
+    }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('OpenAI error:', data);
+      console.error('Gemini API error:', data);
       return res.status(response.status).json({
-        error: data.error?.message || `OpenAI returned status ${response.status}`
+        error: data.error?.message || `Gemini returned status ${response.status}`
       });
     }
 
