@@ -277,9 +277,10 @@ body::after {
 
 /* ============ MAIN CONTENT AREA ============ */
 .app-body {
-  height: calc(100vh - 114px);
+  /* Height and margins set dynamically by JS initSidebars() */
   overflow: hidden;
   position: relative;
+  transition: margin 0.3s ease, height 0.3s ease;
 }
 
 /* ============ TAB PANELS ============ */
@@ -306,26 +307,40 @@ body::after {
   background: var(--dark-card);
   border-right: 1px solid var(--dark-border);
   scrollbar-width: thin;
-  /* Global: always fixed position so accessible from ANY tab */
+  /* Always fixed — accessible from any tab on all screen sizes */
   position: fixed;
-  top: 124px; /* header(58) + nav(38) + proxy-bar(28) */
+  top: 124px; /* overridden by initSidebars() */
   bottom: 0;
   z-index: 600;
-  transform: translateX(-110%);
-  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
-  width: min(300px, 88vw);
-  box-shadow: 4px 0 24px rgba(0,0,0,0.6);
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), width 0.3s ease;
   overflow-x: hidden;
 }
-.sidebar.left  { left: 0; }
-.sidebar.right {
-  left: auto; right: 0;
-  transform: translateX(110%);
-  border-right: none;
-  border-left: 1px solid var(--dark-border);
-  box-shadow: -4px 0 24px rgba(0,0,0,0.6);
+
+/* ---- DESKTOP (≥960px): Sidebars open by default ---- */
+.sidebar.left {
+  left: 0;
+  width: 270px;
+  transform: translateX(0); /* open by default */
+  box-shadow: none;
+  border-right: 1px solid var(--dark-border);
 }
+.sidebar.right {
+  right: 0; left: auto;
+  width: 290px;
+  transform: translateX(0); /* open by default */
+  box-shadow: none;
+  border-left: 1px solid var(--dark-border);
+  border-right: none;
+}
+
+/* .closed class = user manually closed it on desktop */
+.sidebar.left.closed  { transform: translateX(-100%); }
+.sidebar.right.closed { transform: translateX(100%); }
+
+/* .open class = explicitly opened (used on mobile) */
 .sidebar.open { transform: translateX(0) !important; }
+
+
 
 /* Sidebars are global fixed overlays on all tabs and screen sizes */
 
@@ -777,7 +792,7 @@ body::after {
 .alerts-panel.alerts-collapsed { display: none !important; }
 
 /* Slim right sidebar when AI fully closed */
-.sidebar.right.sidebar-slim {
+.sidebar.right.sidebar-slim-legacy {
   width: 44px !important;
   min-width: 44px;
   transition: width 0.3s ease;
@@ -1044,12 +1059,9 @@ body::after {
   padding: 16px 20px;
   flex-direction: column;
   gap: 14px;
-  /* Prevent scroll events from triggering Chart.js resize on parent */
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  /* Fixed height — critical for preventing infinite chart expansion */
-  height: 100%;
-  max-height: calc(100vh - 114px);
+  height: 100%; /* fills app-body height */
 }
 .analytics-layout.visible { display: flex; }
 
@@ -1179,7 +1191,6 @@ body::after {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   height: 100%;
-  max-height: calc(100vh - 114px);
 }
 .intel-layout.visible { display: flex; }
 
@@ -1286,7 +1297,6 @@ body::after {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   height: 100%;
-  max-height: calc(100vh - 114px);
 }
 .ops-layout.visible { display: flex; }
 
@@ -1489,6 +1499,26 @@ body::after {
   .header-center { display: none; }
   .map-mode-bar { display: none; }
 
+  /* ---- MOBILE: Sidebars closed by default, overlay style ---- */
+  .sidebar.left {
+    width: min(300px, 88vw);
+    transform: translateX(-110%); /* hidden off-screen */
+    box-shadow: 4px 0 24px rgba(0,0,0,0.6);
+  }
+  .sidebar.right {
+    width: min(300px, 88vw);
+    transform: translateX(110%); /* hidden off-screen */
+    box-shadow: -4px 0 24px rgba(0,0,0,0.6);
+  }
+  /* Closed class not needed on mobile — hidden by default */
+  .sidebar.left.closed  { transform: translateX(-110%); }
+  .sidebar.right.closed { transform: translateX(110%); }
+  /* Open via button */
+  .sidebar.left.open    { transform: translateX(0) !important; }
+  .sidebar.right.open   { transform: translateX(0) !important; }
+
+  /* App body margins: JS-controlled */
+
   /* Grid layouts go single column */
   .intel-2col { grid-template-columns: 1fr; }
   .intel-card.full { grid-column: span 1; }
@@ -1523,8 +1553,7 @@ body::after {
   .nav-tab { font-size: 8px; letter-spacing: 0.5px; padding: 9px 8px; }
   .nav-tab .tab-icon { display: none; }
 
-  /* App body recalculate */
-  .app-body { height: calc(100vh - 84px); }
+  /* App body: JS-controlled */
 
   /* Ghana map on phone — centered, larger */
   #ghana-svg {
@@ -1647,6 +1676,57 @@ html, body {
 
 /* All tab content panels */
 .tab-panel { max-width: 100vw; overflow-x: hidden; }
+
+/* Sidebar close button — desktop only */
+.sidebar-close-btn {
+  display: flex;
+  margin-left: auto;
+  background: rgba(212,160,23,0.06);
+  border: 1px solid rgba(212,160,23,0.18);
+  color: var(--text-muted);
+  width: 22px; height: 22px;
+  border-radius: 3px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+.sidebar-close-btn:hover {
+  color: var(--gold);
+  border-color: rgba(212,160,23,0.4);
+  background: rgba(212,160,23,0.12);
+}
+
+/* Sidebar reopen tab — thin strip on the edge when closed (desktop only) */
+.sidebar-reopen-tab {
+  display: none; /* shown via JS when closed on desktop */
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 601;
+  cursor: pointer;
+  background: var(--dark-card);
+  border: 1px solid var(--dark-border);
+  color: var(--gold);
+  font-size: 14px;
+  width: 18px;
+  padding: 12px 0;
+  text-align: center;
+  border-radius: 0 4px 4px 0;
+  transition: var(--transition);
+  writing-mode: vertical-rl;
+}
+.sidebar-reopen-tab:hover { background: rgba(212,160,23,0.08); color: var(--gold-bright); }
+.sidebar-reopen-tab.left-tab  { left: 0; border-radius: 0 4px 4px 0; }
+.sidebar-reopen-tab.right-tab { right: 0; border-radius: 4px 0 0 4px; }
+
+@media (max-width: 960px) {
+  .sidebar-close-btn { display: none; }
+  .sidebar-reopen-tab { display: none !important; }
+}
 </style>
 </head>
 <body>
@@ -1654,7 +1734,7 @@ html, body {
 <!-- ============ HEADER ============ -->
 <header class="header">
   <div class="header-left">
-    <button class="mobile-menu-btn" onclick="toggleLeftSidebar()" title="Left Panel">☰</button>
+    <button class="mobile-menu-btn" onclick="toggleLeftSidebar()" title="Toggle Threat Panel" id="left-sidebar-btn">☰</button>
     <div class="logo-hex">
       <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
         <polygon points="20,2 36,11 36,29 20,38 4,29 4,11" fill="url(#hexGrad)" stroke="rgba(212,160,23,0.6)" stroke-width="1"/>
@@ -1683,7 +1763,7 @@ html, body {
   <div class="header-right">
     <div class="op-badge">OP NAIMOS • ACTIVE</div>
     <div class="live-clock" id="live-clock">00:00:00 UTC</div>
-    <button class="mobile-menu-btn" onclick="toggleRightSidebar()" title="Right Panel">⊟</button>
+    <button class="mobile-menu-btn" onclick="toggleRightSidebar()" title="Toggle AI Panel" id="right-sidebar-btn">⊟</button>
   </div>
 </header>
 
@@ -2946,6 +3026,16 @@ html, body {
    Production Grade · All interactive systems
    ============================================== */
 
+
+// ===== ABORT SIGNAL HELPER =====
+// AbortSignal.timeout() cannot be cloned via postMessage (proxy Service Workers).
+// Use this wrapper instead — works with all fetch contexts.
+function makeAbortSignal(ms) {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+}
+
 // ===== LIVE CLOCK =====
 function updateClock() {
   const now = new Date();
@@ -2958,51 +3048,195 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// ===== TAB SYSTEM =====
-function switchTab(tab) {
-  // Deactivate all tabs
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.analytics-layout, .intel-layout, .ops-layout').forEach(l => l.classList.remove('visible'));
+// ===== TAB SYSTEM — see full switchTab function below =====
 
-  // Activate target
-  const navTabs = document.querySelectorAll('.nav-tab');
-  const tabMap = { map: 0, analytics: 1, intel: 2, ops: 3 };
-  navTabs[tabMap[tab]].classList.add('active');
-  document.getElementById('tab-' + tab).classList.add('active');
+// ===== SIDEBAR SYSTEM =====
+// Desktop (≥960px): both sidebars open by default, app-body has margins
+// Mobile (<960px):  both sidebars closed by default, overlay style
 
-  if (tab === 'analytics') {
-    document.getElementById('analytics-content').classList.add('visible');
-    setTimeout(initCharts, 80);
-  } else if (tab === 'intel') {
-    document.getElementById('intel-content').classList.add('visible');
-  } else if (tab === 'ops') {
-    document.getElementById('ops-content').classList.add('visible');
+const DESKTOP_BREAKPOINT = 960;
+
+function isDesktop() {
+  return window.innerWidth > DESKTOP_BREAKPOINT;
+}
+
+// Track open/closed state
+let leftSidebarOpen  = false; // set properly by initSidebars()
+let rightSidebarOpen = false;
+
+function initSidebars() {
+  // Measure actual header stack height
+  const headerEl  = document.querySelector('.header');
+  const navEl     = document.querySelector('.nav-bar');
+  const proxyEl   = document.getElementById('proxy-bar');
+  const headerH   = headerEl  ? headerEl.offsetHeight  : 58;
+  const navH      = navEl     ? navEl.offsetHeight      : 38;
+  const proxyH    = proxyEl   ? proxyEl.offsetHeight    : 28;
+  const totalTop  = headerH + navH + proxyH;
+
+  // Set CSS variable for sidebar top + app-body height
+  document.documentElement.style.setProperty('--sidebar-top', totalTop + 'px');
+  document.documentElement.style.setProperty('--appbody-h',  'calc(100vh - ' + totalTop + 'px)');
+
+  // Apply to elements directly
+  const ab = document.querySelector('.app-body');
+  if (ab) {
+    ab.style.height = 'calc(100vh - ' + totalTop + 'px)';
   }
 
-  // Close mobile sidebars
-  closeAllSidebars();
+  // Set sidebar top offset
+  document.querySelectorAll('.sidebar').forEach(sb => {
+    sb.style.top = totalTop + 'px';
+  });
+
+  // Fix analytics/intel/ops max-height to match
+  document.querySelectorAll('.analytics-layout, .intel-layout, .ops-layout').forEach(el => {
+    el.style.maxHeight = 'calc(100vh - ' + totalTop + 'px)';
+  });
+
+  if (isDesktop()) {
+    _openLeft(false);
+    _openRight(false);
+  } else {
+    _closeLeft(false);
+    _closeRight(false);
+  }
 }
 
-// ===== MOBILE SIDEBAR =====
-function toggleLeftSidebar() {
+// ---- Low-level open/close (internal) ----
+function _openLeft(animate) {
   const sb = document.getElementById('left-sidebar');
-  const ov = document.getElementById('sidebar-overlay');
-  sb.classList.toggle('open');
-  document.getElementById('right-sidebar').classList.remove('open');
-  ov.classList.toggle('visible', sb.classList.contains('open'));
+  if (!sb) return;
+  if (!animate) { sb.style.transition = 'none'; requestAnimationFrame(() => sb.style.transition = ''); }
+  sb.classList.remove('closed');
+  sb.classList.add('open');
+  document.getElementById('left-reopen-tab').style.display = 'none';
+  leftSidebarOpen = true;
+  requestAnimationFrame(updateAppBodyMargins);
 }
-function toggleRightSidebar() {
-  const sb = document.getElementById('right-sidebar');
-  const ov = document.getElementById('sidebar-overlay');
-  sb.classList.toggle('open');
-  document.getElementById('left-sidebar').classList.remove('open');
-  ov.classList.toggle('visible', sb.classList.contains('open'));
-}
-function closeAllSidebars() {
-  document.getElementById('left-sidebar').classList.remove('open');
-  document.getElementById('right-sidebar').classList.remove('open');
+
+function _closeLeft(animate) {
+  const sb = document.getElementById('left-sidebar');
+  if (!sb) return;
+  if (!animate) { sb.style.transition = 'none'; requestAnimationFrame(() => sb.style.transition = ''); }
+  sb.classList.remove('open');
+  if (isDesktop()) sb.classList.add('closed');
   document.getElementById('sidebar-overlay').classList.remove('visible');
+  if (isDesktop()) document.getElementById('left-reopen-tab').style.display = 'flex';
+  leftSidebarOpen = false;
+  requestAnimationFrame(updateAppBodyMargins);
+}
+
+function _openRight(animate) {
+  const sb = document.getElementById('right-sidebar');
+  if (!sb) return;
+  if (!animate) { sb.style.transition = 'none'; requestAnimationFrame(() => sb.style.transition = ''); }
+  sb.classList.remove('closed');
+  sb.classList.add('open');
+  document.getElementById('right-reopen-tab').style.display = 'none';
+  rightSidebarOpen = true;
+  requestAnimationFrame(updateAppBodyMargins);
+}
+
+function _closeRight(animate) {
+  const sb = document.getElementById('right-sidebar');
+  if (!sb) return;
+  if (!animate) { sb.style.transition = 'none'; requestAnimationFrame(() => sb.style.transition = ''); }
+  sb.classList.remove('open');
+  if (isDesktop()) sb.classList.add('closed');
+  document.getElementById('sidebar-overlay').classList.remove('visible');
+  if (isDesktop()) document.getElementById('right-reopen-tab').style.display = 'flex';
+  rightSidebarOpen = false;
+  requestAnimationFrame(updateAppBodyMargins);
+}
+
+// ---- Public API ----
+function openLeftSidebar()  { _openLeft(true); }
+function closeLeftSidebar() { _closeLeft(true); }
+function openRightSidebar() { _openRight(true); }
+function closeRightSidebar(){ _closeRight(true); }
+
+// Toggle buttons (header ☰ and ⊟)
+function toggleLeftSidebar() {
+  if (leftSidebarOpen) {
+    _closeLeft(true);
+  } else {
+    _openLeft(true);
+    if (!isDesktop()) {
+      // Mobile: close right if open, show overlay
+      _closeRight(true);
+      document.getElementById('sidebar-overlay').classList.add('visible');
+    }
+  }
+}
+
+function toggleRightSidebar() {
+  if (rightSidebarOpen) {
+    _closeRight(true);
+  } else {
+    _openRight(true);
+    if (!isDesktop()) {
+      // Mobile: close left if open, show overlay
+      _closeLeft(true);
+      document.getElementById('sidebar-overlay').classList.add('visible');
+    }
+  }
+}
+
+// Override the slim-close button from v11 to use proper close
+function toggleRightSidebarSlim() { _closeRight(true); }
+function reopenRightSidebar()     { _openRight(true); }
+
+function closeAllSidebars() {
+  // Used on mobile when overlay tapped or tab switched
+  if (!isDesktop()) {
+    _closeLeft(true);
+    _closeRight(true);
+  }
+}
+
+// Re-init on resize (desktop ↔ mobile switch)
+let _sidebarResizeTimer = null;
+let _lastSidebarWidth = window.innerWidth;
+window.addEventListener('resize', () => {
+  clearTimeout(_sidebarResizeTimer);
+  _sidebarResizeTimer = setTimeout(() => {
+    const nowDesktop = isDesktop();
+    const wasDesktop = _lastSidebarWidth > DESKTOP_BREAKPOINT;
+    _lastSidebarWidth = window.innerWidth;
+
+    if (nowDesktop && !wasDesktop) {
+      // Switched to desktop: open both sidebars
+      _openLeft(true);
+      _openRight(true);
+    } else if (!nowDesktop && wasDesktop) {
+      // Switched to mobile: close both sidebars, clear margins
+      _closeLeft(false);
+      _closeRight(false);
+      document.getElementById('left-reopen-tab').style.display  = 'none';
+      document.getElementById('right-reopen-tab').style.display = 'none';
+    }
+    // Always re-measure heights and reapply
+    initSidebars();
+    updateAppBodyMargins();
+  }, 200);
+});
+
+function updateAppBodyMargins() {
+  const ab = document.querySelector('.app-body');
+  if (!ab) return;
+  if (!isDesktop()) {
+    ab.style.marginLeft  = '0';
+    ab.style.marginRight = '0';
+    return;
+  }
+  // Get actual sidebar widths
+  const lsb = document.getElementById('left-sidebar');
+  const rsb = document.getElementById('right-sidebar');
+  const lw  = (lsb && leftSidebarOpen)  ? lsb.offsetWidth  : 0;
+  const rw  = (rsb && rightSidebarOpen) ? rsb.offsetWidth  : 0;
+  ab.style.marginLeft  = lw + 'px';
+  ab.style.marginRight = rw + 'px';
 }
 
 // ===== MAP CONTROLS =====
@@ -3210,7 +3444,7 @@ if (mapArea) {
 // ===== AI CHAT SYSTEM — GOOGLE GEMINI (FREE) =====
 // Get your FREE Gemini API key at: https://aistudio.google.com/app/apikey
 // No credit card required · Generous free daily quota
-const GEMINI_API_KEY = 'AIzaSyA8zIXiP7GyUoqUvQNAnJF1AuJxIGmiHn8';
+const GEMINI_API_KEY = 'AIzaSyBO5kU80bwhRf40-SnoClz--xuXjkNilbs';
 
 // ===== ESA SENTINEL HUB — PRODUCTION CORS-SAFE IMPLEMENTATION =====
 // CORS FIX: Browser cannot call Sentinel Hub API directly.
@@ -3249,7 +3483,7 @@ async function getSentinelToken() {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: tokenBody,
-        signal: AbortSignal.timeout(8000)
+        signal: makeAbortSignal(8000)
       });
       return r.json();
     },
@@ -3260,7 +3494,7 @@ async function getSentinelToken() {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: tokenBody,
-        signal: AbortSignal.timeout(10000)
+        signal: makeAbortSignal(10000)
       });
       return r.json();
     },
@@ -3270,7 +3504,7 @@ async function getSentinelToken() {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: tokenBody,
-        signal: AbortSignal.timeout(10000)
+        signal: makeAbortSignal(10000)
       });
       return r.json();
     }
@@ -3289,12 +3523,13 @@ async function getSentinelToken() {
       }
       if (data.error) throw new Error(data.error_description || data.error);
     } catch(e) {
-      console.warn('Sentinel auth attempt failed:', e.message);
+      // Silently continue to next proxy attempt
     }
   }
 
-  // All auth attempts failed — switch to Copernicus WMS fallback
-  setSentinelStatus('error', '✗ Sentinel Hub auth failed (CORS/trial expired). Using Copernicus WMS fallback instead.');
+  // All auth attempts failed — use Copernicus WMS fallback (normal on file://)
+  console.warn('Sentinel Hub: auth unavailable — using public WMS fallback');
+  setSentinelStatus('error', '✗ Auth failed. Using Copernicus WMS fallback (click any imagery button).');
   throw new Error('SENTINEL_AUTH_FAILED');
 }
 
@@ -3843,15 +4078,28 @@ async function getPCToken(dataset) {
     return pcTokens[dataset];
   }
   try {
-    const resp = await fetch(`${PC_BASE}/${PC_COLLECTIONS[dataset]}`);
+    // Planetary Computer SAS token endpoint
+    const tokenUrl = `${PC_BASE}/${PC_COLLECTIONS[dataset]}`;
+    const resp = await fetch(tokenUrl, {
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
+    if (!data.token) throw new Error('No token in response');
     pcTokens[dataset] = data.token;
     pcTokenExpiry[dataset] = new Date(data['msft:expiry']).getTime();
-    console.log(`PC token refreshed for ${dataset} · expires ${data['msft:expiry']}`);
+    console.log(`✓ PC token refreshed: ${dataset}`);
+    // Update proxy badge
+    const badge = document.getElementById('proxy-planetary');
+    if (badge) { badge.textContent = '⬤ PLANETARY'; badge.className = 'proxy-badge ok'; }
     return data.token;
   } catch(e) {
-    console.error(`PC token fetch failed for ${dataset}:`, e);
-    return null;
+    // PC tokens can fail on file:// protocol or restricted networks
+    // The STAC search still works without tokens for public data
+    console.warn(`PC token unavailable for ${dataset} (${e.message}) — public access mode`);
+    const badge = document.getElementById('proxy-planetary');
+    if (badge) { badge.textContent = '◎ PLANETARY'; badge.className = 'proxy-badge warn'; }
+    return null; // null = use URLs without SAS token (still works for public assets)
   }
 }
 
@@ -4084,7 +4332,7 @@ async function sendAIMessage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: geminiBody,
-        signal: AbortSignal.timeout(20000)
+        signal: makeAbortSignal(20000)
       });
       return r.json();
     },
@@ -4094,7 +4342,7 @@ async function sendAIMessage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: geminiBody,
-        signal: AbortSignal.timeout(22000)
+        signal: makeAbortSignal(22000)
       });
       return r.json();
     }
@@ -4452,10 +4700,7 @@ window.addEventListener('load', () => {
   }, 100);
 });
 
-// ===== FIRMS TAB in switchTab =====
-// Patch the tabMap to include firms
-const _origSwitch = switchTab;
-// Override to handle firms tab
+// ===== TAB SYSTEM — Full implementation (all 8 tabs) =====
 function switchTab(tab) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -4484,7 +4729,8 @@ function switchTab(tab) {
   } else if (tab === 'gee') {
     document.getElementById('gee-content').classList.add('visible');
   }
-  closeAllSidebars();
+  // Only close sidebars on mobile (on desktop they stay open across tabs)
+  if (!isDesktop()) closeAllSidebars();
 }
 
 // ===== NASA FIRMS LIVE DATA ENGINE =====
@@ -4567,7 +4813,7 @@ async function fetchWithCORSProxy(targetUrl) {
   for (const proxy of CORS_PROXIES) {
     try {
       const proxyUrl = proxy.wrap(targetUrl);
-      const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
+      const resp = await fetch(proxyUrl, { signal: makeAbortSignal(12000) });
       if (!resp.ok) continue;
       const data = await resp.json().catch(() => null) || await resp.text().catch(() => null);
       if (!data) continue;
@@ -4584,7 +4830,7 @@ async function fetchWithCORSProxy(targetUrl) {
   }
   // Final fallback: direct fetch (works if server has CORS headers)
   try {
-    const resp = await fetch(targetUrl, { signal: AbortSignal.timeout(10000) });
+    const resp = await fetch(targetUrl, { signal: makeAbortSignal(10000) });
     if (resp.ok) return await resp.text();
   } catch (e) {
     lastError = e;
@@ -4928,7 +5174,7 @@ async function checkProxyHealth() {
   // Test allorigins proxy (used for FIRMS)
   try {
     const testUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://httpbin.org/get');
-    const resp = await fetch(testUrl, { signal: AbortSignal.timeout(6000) });
+    const resp = await fetch(testUrl, { signal: makeAbortSignal(6000) });
     if (resp.ok) {
       const firmsBadge = document.getElementById('proxy-firms');
       if (firmsBadge) { firmsBadge.textContent = '⬤ FIRMS PROXY'; firmsBadge.className = 'proxy-badge ok'; }
@@ -4958,7 +5204,7 @@ async function checkProxyHealth() {
 
   // Test Planetary Computer
   try {
-    const pcResp = await fetch('https://planetarycomputer.microsoft.com/api/sas/v1/token/sentinel-2-l2a', { signal: AbortSignal.timeout(5000) });
+    const pcResp = await fetch('https://planetarycomputer.microsoft.com/api/sas/v1/token/sentinel-2-l2a');
     const pcBadge = document.getElementById('proxy-planetary');
     if (pcResp.ok && pcBadge) { pcBadge.textContent = '⬤ PLANETARY'; pcBadge.className = 'proxy-badge ok'; }
   } catch(e) {
@@ -4982,6 +5228,11 @@ async function checkProxyHealth() {
 window.addEventListener('load', () => {
   setTimeout(checkProxyHealth, 2000);
   setInterval(checkProxyHealth, 5 * 60 * 1000);
+  // Re-run initSidebars after full page load (fonts affect heights)
+  setTimeout(() => {
+    initSidebars();
+    updateAppBodyMargins();
+  }, 100);
 });
 
 // ===== MOBILE MAP CENTER FIX =====
@@ -5035,6 +5286,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.style.overflowX = 'hidden';
   document.documentElement.style.overflowX = 'hidden';
   fixMobileMapCenter();
+  // Initialize sidebars: open on desktop, closed on mobile
+  initSidebars();
+  // Set correct app-body margins
+  updateAppBodyMargins();
 });
 
 // ===== TOUCH SWIPE FOR MOBILE SIDEBAR =====
@@ -5072,35 +5327,44 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 
 // ===== PRODUCTION: SENTINEL HUB AUTO AUTH ON LOAD =====
+// Silently attempt auth — failures are normal on file:// protocol
 window.addEventListener('load', () => {
-  setTimeout(() => getSentinelToken().catch(() => {}), 1500);
+  setTimeout(() => {
+    getSentinelToken().catch(() => {
+      // Expected on file:// — auth happens when user clicks a Sentinel button
+    });
+  }, 5000); // delay to not compete with other load tasks
 });
 
 // ===== PRODUCTION: PC TOKEN PREFETCH =====
+// Tokens silently fail on file:// protocol — STAC search still works without them
 window.addEventListener('load', () => {
   setTimeout(async () => {
+    // Stagger token fetches to avoid simultaneous requests
     await getPCToken('s2').catch(() => {});
+    await new Promise(r => setTimeout(r, 500));
     await getPCToken('s1').catch(() => {});
+    await new Promise(r => setTimeout(r, 500));
     await getPCToken('landsat').catch(() => {});
+    // Refresh every 45 minutes
     setInterval(async () => {
       await getPCToken('s2').catch(() => {});
       await getPCToken('s1').catch(() => {});
       await getPCToken('landsat').catch(() => {});
     }, 45 * 60 * 1000);
-  }, 3000);
+  }, 4000); // delay to let page fully render first
 });
 
 
 // ===== AI PANEL COLLAPSE / EXPAND =====
+// Note: rightSidebarOpen is declared in the SIDEBAR SYSTEM block above
 let aiChatOpen = true;
 let alertsOpen = true;
-let rightSidebarOpen = true;
 
 function toggleAIChat() {
   const panel = document.querySelector('.ai-panel');
   const btn   = document.getElementById('ai-chat-toggle');
   if (!panel) return;
-
   aiChatOpen = !aiChatOpen;
   panel.classList.toggle('ai-collapsed', !aiChatOpen);
   btn.textContent = aiChatOpen ? '▾' : '▸';
@@ -5108,51 +5372,25 @@ function toggleAIChat() {
 }
 
 function toggleAlerts() {
-  const panel   = document.querySelector('.alerts-panel');
-  const btn     = document.getElementById('alerts-toggle');
+  const panel = document.querySelector('.alerts-panel');
+  const btn   = document.getElementById('alerts-toggle');
   if (!panel) return;
-
   alertsOpen = !alertsOpen;
   panel.classList.toggle('alerts-collapsed', !alertsOpen);
   btn.textContent = alertsOpen ? '▾' : '▸';
   btn.title = alertsOpen ? 'Collapse alerts' : 'Expand alerts';
 }
 
-function toggleRightSidebarSlim() {
-  const sb   = document.getElementById('right-sidebar');
-  const strip = document.getElementById('slim-reopen-strip');
-  if (!sb) return;
-
-  rightSidebarOpen = false;
-  sb.classList.add('sidebar-slim');
-  if (strip) strip.style.display = 'flex';
-}
-
-function reopenRightSidebar() {
-  const sb    = document.getElementById('right-sidebar');
-  const strip = document.getElementById('slim-reopen-strip');
-  if (!sb) return;
-
-  rightSidebarOpen = true;
-  sb.classList.remove('sidebar-slim');
-  if (strip) strip.style.display = 'none';
-
-  // Restore chat and alerts if they were collapsed
-  if (!aiChatOpen) toggleAIChat();
-  if (!alertsOpen) toggleAlerts();
-}
-
-// Keyboard shortcut: Ctrl+Shift+A = toggle AI panel
+// Keyboard shortcut: Ctrl+Shift+A = toggle AI chat panel
 document.addEventListener('keydown', e => {
   if (e.ctrlKey && e.shiftKey && e.key === 'A') {
     e.preventDefault();
-    if (!rightSidebarOpen) { reopenRightSidebar(); return; }
     toggleAIChat();
   }
 });
 
-console.log('%c NAIMOS AMS v11 INITIALIZED ', 'background:#D4A017;color:#000;font-weight:bold;font-size:13px;padding:4px 12px;');
-console.log('%c Anti-Galamsey Smart Management System · v11 · Collapsible AI · Chart Scroll Fix · All APIs', 'color:#D4A017;font-size:11px;');
+console.log('%c NAIMOS AMS v12 INITIALIZED ', 'background:#D4A017;color:#000;font-weight:bold;font-size:13px;padding:4px 12px;');
+console.log('%c Anti-Galamsey Smart Management System · v12 · Global Sidebars · Desktop Open · Mobile Closed', 'color:#D4A017;font-size:11px;');
 console.log('%c CORS Proxies: allorigins.win → corsproxy.io → thingproxy (fallback chain)', 'color:#00FF88;font-size:10px;');
 </script>
 
@@ -5160,7 +5398,10 @@ console.log('%c CORS Proxies: allorigins.win → corsproxy.io → thingproxy (fa
 <div class="sidebar left" id="left-sidebar">
 
         <div class="sidebar-section">
-          <div class="section-title">Threat Overview</div>
+          <div class="section-title">
+            Threat Overview
+            <button class="sidebar-close-btn" onclick="closeLeftSidebar()" title="Close panel">✕</button>
+          </div>
           <div class="threat-grid">
             <div class="threat-card c-red" onclick="filterSites('critical')">
               <div class="threat-num" id="cnt-critical">14</div>
@@ -5391,5 +5632,9 @@ console.log('%c CORS Proxies: allorigins.win → corsproxy.io → thingproxy (fa
   </div>
 <!-- ============ END GLOBAL SIDEBARS ============ -->
 
+
+<!-- Sidebar reopen tabs (desktop only, shown when sidebars are manually closed) -->
+<div class="sidebar-reopen-tab left-tab" id="left-reopen-tab" onclick="openLeftSidebar()" title="Open threat panel" style="display:none;">◈</div>
+<div class="sidebar-reopen-tab right-tab" id="right-reopen-tab" onclick="openRightSidebar()" title="Open AI panel" style="display:none;">◈</div>
 </body>
 </html>
