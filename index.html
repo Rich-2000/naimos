@@ -3457,7 +3457,7 @@ if (mapArea) {
 // ===== AI CHAT SYSTEM — GOOGLE GEMINI (FREE) =====
 // Get your FREE Gemini API key at: https://aistudio.google.com/app/apikey
 // No credit card required · Generous free daily quota
-const GEMINI_API_KEY = 'AIzaSyA8zIXiP7GyUoqUvQNAnJF1AuJxIGmiHn8';
+const GEMINI_API_KEY = '';
 
 // ===== ESA SENTINEL HUB — PRODUCTION CORS-SAFE IMPLEMENTATION =====
 // CORS FIX: Browser cannot call Sentinel Hub API directly.
@@ -4433,7 +4433,7 @@ function getAPIEndpoint() {
 async function callGeminiDirect(contents) {
   // Direct browser → Gemini call (Gemini allows browser CORS with API key in URL)
   // This is the fallback for file:// protocol or when /api/chat is unavailable
-  const GEMINI_API_KEY = 'AIzaSyA8zIXiP7GyUoqUvQNAnJF1AuJxIGmiHn8';
+  const GEMINI_API_KEY = '';
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
 
   const body = {
