@@ -4395,15 +4395,10 @@ async function loadPCForestAlerts(regionKey) {
 
 
 
-// ===== AI CHAT SYSTEM — NAIMOS GEMINI (via /api/chat proxy) =====
-// Routes through Vercel serverless function to avoid CORS issues.
-// Set GEMINI_API_KEY in Vercel → Settings → Environment Variables.
-// For local dev: also works via direct Gemini call (Gemini supports browser CORS).
-
 const NAIMOS_SYSTEM_PROMPT = `You are NAIMOS-AI, the intelligence and analysis system for Ghana's National Anti-Illegal Mining Operations Secretariat (NAIMOS).
-
+ 
 Your role: Analyze and respond to queries about illegal galamsey (illegal artisanal mining) across Ghana's 16 regions, using data from CERSGIS, Sentinel-1 SAR, NASA FIRMS, Landsat, and Ghana EPA sensor networks.
-
+ 
 Current operational context:
 - 14 ACTIVE galamsey sites detected by satellite and ground intelligence
 - 7 high-probability PREDICTED sites flagged by AI models
@@ -4413,56 +4408,12 @@ Current operational context:
 - Land: 29,400 ha forest destroyed, 12,800 ha farmland degraded
 - 247 communities affected across Ghana
 - Data sources: CERSGIS/SERVIR-WA, ESA Sentinel-1 SAR, Sentinel-2 optical, Landsat 8/9, NASA FIRMS VIIRS thermal, Ghana EPA water sensors, Google Earth Engine, Copernicus Sentinel Hub, drone feeds.
-
+ 
 Respond as a sharp military-grade intelligence AI: concise (under 180 words), data-driven, operational focus. Include confidence percentages when relevant. Give actionable recommendations. Prioritize environmental protection and operational effectiveness for NAIMOS.`;
-
-// Gemini conversation history: array of {role, parts}
+ 
 let geminiHistory = [];
-
-// Detect if running on Vercel (has /api/chat proxy) or local file
-function getAPIEndpoint() {
-  const isLocalFile = window.location.protocol === 'file:';
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  // On Vercel deployment: use the serverless proxy (no CORS issues, key stays secret)
-  // On localhost dev server: also use proxy if available, else fall back to direct Gemini
-  // On file://: must use direct Gemini call (no server available)
-  if (isLocalFile) return 'direct';
-  return '/api/chat'; // works on Vercel and any server that hosts this file
-}
-
-async function callGeminiDirect(contents) {
-  // Direct browser → Gemini call (Gemini allows browser CORS with API key in URL)
-  // This is the fallback for file:// protocol or when /api/chat is unavailable
-  const GEMINI_API_KEY = '';
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-
-  const body = {
-    system_instruction: { parts: [{ text: NAIMOS_SYSTEM_PROMPT }] },
-    contents,
-    generationConfig: { temperature: 0.7, maxOutputTokens: 512, topP: 0.9 },
-    safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-    ]
-  };
-
-  const resp = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: makeAbortSignal(20000)
-  });
-
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(data.error?.message || `Gemini HTTP ${resp.status}`);
-  return data;
-}
-
+ 
 async function callGeminiProxy(contents) {
-  // Server-side proxy call → /api/chat (Vercel function)
-  // Key stays on server, no CORS issues, works everywhere
   const resp = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -4470,97 +4421,98 @@ async function callGeminiProxy(contents) {
       contents,
       system_instruction: { parts: [{ text: NAIMOS_SYSTEM_PROMPT }] }
     }),
-    signal: makeAbortSignal(20000)
+    signal: makeAbortSignal(25000)
   });
-
   const data = await resp.json();
   if (!resp.ok) throw new Error(data.error || `Proxy HTTP ${resp.status}`);
   return data;
 }
-
+ 
 async function sendAIMessage() {
   const input = document.getElementById('ai-input');
   const btn   = document.getElementById('send-btn');
   const text  = input.value.trim();
   if (!text) return;
-
+ 
+  if (window.location.protocol === 'file:') {
+    appendMsg(
+      '⚠ AI chat requires a server to keep the API key secure.\n\n' +
+      'Options:\n' +
+      '• Deploy to Vercel (recommended — AI works automatically)\n' +
+      '• Local dev: npm i -g vercel → vercel dev → open http://localhost:3000',
+      'ai'
+    );
+    return;
+  }
+ 
   input.value = '';
   btn.disabled = true;
   appendMsg(text, 'user');
-
+ 
   const typingEl = document.getElementById('typing-anim');
   typingEl.classList.add('visible');
   scrollChat();
-
+ 
   geminiHistory.push({ role: 'user', parts: [{ text }] });
-
-  // Keep history manageable
   if (geminiHistory.length > 20) geminiHistory = geminiHistory.slice(-20);
-
-  const apiMode = getAPIEndpoint();
+ 
   let data = null;
   let lastError = null;
-
-  // Strategy 1: Use /api/chat proxy if on a server
-  if (apiMode === '/api/chat') {
-    try {
-      data = await callGeminiProxy(geminiHistory);
-    } catch (e) {
-      lastError = e;
-      console.warn('Proxy call failed, trying direct:', e.message);
-      // Fallback to direct if proxy fails (e.g. local dev without Vercel CLI)
-      try {
-        data = await callGeminiDirect(geminiHistory);
-      } catch (e2) {
-        lastError = e2;
-      }
-    }
-  } else {
-    // file:// protocol — direct only
-    try {
-      data = await callGeminiDirect(geminiHistory);
-    } catch (e) {
-      lastError = e;
-    }
+ 
+  try {
+    data = await callGeminiProxy(geminiHistory);
+  } catch (e) {
+    lastError = e;
+    console.error('NAIMOS-AI error:', e.message);
   }
-
+ 
   typingEl.classList.remove('visible');
-
+ 
   if (data) {
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text
-      || data.candidates?.[0]?.output
-      || 'Signal lost. No response content. Retry.';
+      || 'Signal lost — no content returned. Retry.';
     geminiHistory.push({ role: 'model', parts: [{ text: reply }] });
     appendMsg(reply, 'ai');
   } else {
-    // Remove the failed user message from history
     geminiHistory.pop();
-
-    const isFile = window.location.protocol === 'file:';
-    if (isFile) {
+    const msg = lastError?.message || 'Unknown error';
+ 
+    if (msg.includes('GEMINI_API_KEY') || msg.includes('not set')) {
       appendMsg(
-        '⚠ NAIMOS-AI: CORS restriction on file:// protocol.\n\n' +
-        'To use the AI chat, serve this file from a local server:\n' +
-        '• VS Code → Install "Live Server" → Click "Go Live" (bottom right)\n' +
-        '• Or run: npx serve . in this folder\n\n' +
-        'On Vercel deployment this works automatically.',
+        '⚠ API key not configured.\n\n' +
+        'Vercel → Project → Settings → Environment Variables\n' +
+        '→ Add: GEMINI_API_KEY = <your key from aistudio.google.com/app/apikey>\n' +
+        '→ Save → Redeploy',
+        'ai'
+      );
+    } else if (msg.includes('404') || msg.includes('not found') || msg.includes('unregistered')) {
+      appendMsg(
+        '⚠ /api/chat route not found on server.\n\n' +
+        'Check your vercel.json has:\n' +
+        '{ "rewrites": [{ "source": "/api/chat", "destination": "/api/chat.js" }] }\n\n' +
+        'Also confirm api/chat.js exists in your repo root and redeploy.',
+        'ai'
+      );
+    } else if (msg.includes('leaked') || msg.includes('reported')) {
+      appendMsg(
+        '⚠ API key flagged as leaked.\n\n' +
+        '1. aistudio.google.com/app/apikey → delete old key → create new\n' +
+        '2. Update GEMINI_API_KEY in Vercel Environment Variables\n' +
+        '3. Redeploy',
         'ai'
       );
     } else {
-      appendMsg(
-        `⚠ NAIMOS-AI temporarily offline.\n\nError: ${lastError?.message || 'Unknown error'}\n\nTry again in a moment.`,
-        'ai'
-      );
+      appendMsg(`⚠ NAIMOS-AI offline.\n\nError: ${msg}\n\nTry again in a moment.`, 'ai');
     }
   }
-
+ 
   btn.disabled = false;
   scrollChat();
 }
-
+ 
 function appendMsg(text, type) {
   const feed = document.getElementById('chat-feed');
-  const div = document.createElement('div');
+  const div  = document.createElement('div');
   div.className = 'chat-msg ' + (type === 'ai' ? 'ai-msg' : 'user-msg');
   const meta = document.createElement('div');
   meta.className = 'msg-timestamp';
@@ -4578,12 +4530,12 @@ function appendMsg(text, type) {
   feed.appendChild(div);
   scrollChat();
 }
-
+ 
 function scrollChat() {
   const feed = document.getElementById('chat-feed');
   if (feed) feed.scrollTop = feed.scrollHeight;
 }
-
+ 
 function sendQuickMsg(prompt) {
   document.getElementById('ai-input').value = prompt;
   sendAIMessage();
