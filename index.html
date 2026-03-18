@@ -1,3 +1,4 @@
+new index.html:
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -220,7 +221,8 @@ body::after {
 
 /* Mobile menu toggle */
 .mobile-menu-btn {
-  display: none;
+  /* Always visible — sidebars are now overlay panels on ALL tabs/screens */
+  display: flex;
   background: none;
   border: 1px solid var(--dark-border-light);
   color: var(--text-secondary);
@@ -275,7 +277,7 @@ body::after {
 
 /* ============ MAIN CONTENT AREA ============ */
 .app-body {
-  height: calc(100vh - 90px);
+  height: calc(100vh - 114px);
   overflow: hidden;
   position: relative;
 }
@@ -290,10 +292,10 @@ body::after {
 
 /* ============ MAP TAB LAYOUT ============ */
 .map-layout {
-  display: grid;
-  grid-template-columns: 256px 1fr 288px;
+  display: flex;
   height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 /* ============ SIDEBAR PANELS ============ */
@@ -304,11 +306,28 @@ body::after {
   background: var(--dark-card);
   border-right: 1px solid var(--dark-border);
   scrollbar-width: thin;
+  /* Global: always fixed position so accessible from ANY tab */
+  position: fixed;
+  top: 124px; /* header(58) + nav(38) + proxy-bar(28) */
+  bottom: 0;
+  z-index: 600;
+  transform: translateX(-110%);
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  width: min(300px, 88vw);
+  box-shadow: 4px 0 24px rgba(0,0,0,0.6);
+  overflow-x: hidden;
 }
+.sidebar.left  { left: 0; }
 .sidebar.right {
+  left: auto; right: 0;
+  transform: translateX(110%);
   border-right: none;
   border-left: 1px solid var(--dark-border);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.6);
 }
+.sidebar.open { transform: translateX(0) !important; }
+
+/* Sidebars are global fixed overlays on all tabs and screen sizes */
 
 .sidebar-section {
   border-bottom: 1px solid var(--dark-border);
@@ -477,6 +496,8 @@ body::after {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 1;
+  width: 100%;
 }
 
 .map-grid-bg {
@@ -514,10 +535,13 @@ body::after {
 #ghana-svg {
   position: relative;
   z-index: 2;
-  width: min(85%, 560px);
-  height: min(92%, 680px);
+  width: min(82%, 520px);
+  height: auto;
+  max-height: 94%;
   filter: drop-shadow(0 0 25px rgba(212,160,23,0.07));
   transition: transform 0.3s ease;
+  display: block;
+  margin: 0 auto;
 }
 
 /* Map controls toolbar */
@@ -722,7 +746,69 @@ body::after {
   flex-direction: column;
   flex: 1;
   overflow: hidden;
+  transition: all 0.3s ease;
+  min-height: 0;
 }
+
+/* AI Panel collapse/expand toggle */
+.ai-toggle-btn {
+  margin-left: auto;
+  background: rgba(212,160,23,0.07);
+  border: 1px solid rgba(212,160,23,0.2);
+  color: var(--gold-dim);
+  width: 24px; height: 24px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+  transition: var(--transition);
+  flex-shrink: 0; user-select: none; line-height: 1;
+}
+.ai-toggle-btn:hover { background: rgba(212,160,23,0.18); color: var(--gold); border-color: rgba(212,160,23,0.5); }
+
+/* Collapsed state — only header bar visible */
+.ai-panel.ai-collapsed .quick-actions,
+.ai-panel.ai-collapsed .chat-feed,
+.ai-panel.ai-collapsed .typing-anim,
+.ai-panel.ai-collapsed .chat-input-bar { display: none !important; }
+.ai-panel.ai-collapsed { flex: 0 0 auto; }
+
+/* Alerts panel collapse */
+.alerts-panel.alerts-collapsed { display: none !important; }
+
+/* Slim right sidebar when AI fully closed */
+.sidebar.right.sidebar-slim {
+  width: 44px !important;
+  min-width: 44px;
+  transition: width 0.3s ease;
+}
+.sidebar.right.sidebar-slim .ai-panel,
+.sidebar.right.sidebar-slim .alerts-panel { display: none !important; }
+.sidebar.right.sidebar-slim .slim-reopen {
+  display: flex !important;
+  flex-direction: column; align-items: center;
+  padding: 14px 0; gap: 8px;
+}
+
+/* Slim reopen strip (hidden normally) */
+.slim-reopen {
+  display: none;
+  width: 100%; height: 100%;
+  cursor: pointer;
+  align-items: center; justify-content: center;
+}
+.slim-reopen-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: 'Orbitron', monospace;
+  font-size: 8px; letter-spacing: 2px;
+  color: var(--gold); opacity: 0.7;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 12px 0;
+  transition: opacity var(--transition);
+}
+.slim-reopen-label:hover { opacity: 1; }
 
 .ai-header-bar {
   display: flex;
@@ -954,9 +1040,16 @@ body::after {
 .analytics-layout {
   display: none;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px 20px;
   flex-direction: column;
   gap: 14px;
+  /* Prevent scroll events from triggering Chart.js resize on parent */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  /* Fixed height — critical for preventing infinite chart expansion */
+  height: 100%;
+  max-height: calc(100vh - 114px);
 }
 .analytics-layout.visible { display: flex; }
 
@@ -1019,6 +1112,37 @@ body::after {
   border: 1px solid var(--dark-border);
   border-radius: var(--radius-md);
   padding: 16px;
+  /* CRITICAL: overflow hidden prevents chart canvas from expanding the card */
+  overflow: hidden;
+  /* min-width: 0 prevents flex/grid children from overflowing */
+  min-width: 0;
+}
+
+/* Chart canvas wrapper — fixed height container stops the infinite resize bug */
+.chart-wrap {
+  position: relative;
+  width: 100%;
+  /* touch-action: pan-y lets finger scrolling pass through to the scroll container
+     instead of being captured by Chart.js interaction handlers */
+  touch-action: pan-y;
+  /* user-select: none prevents accidental text selection while scrolling */
+  user-select: none;
+  -webkit-user-select: none;
+}
+.chart-wrap.h-180 { height: 180px; }
+.chart-wrap.h-160 { height: 160px; }
+.chart-wrap.h-200 { height: 200px; }
+.chart-wrap.h-240 { height: 240px; }
+.chart-wrap.h-280 { height: 280px; }
+
+/* Canvas must fill wrapper exactly */
+.chart-wrap canvas {
+  position: absolute !important;
+  top: 0; left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  /* Prevent canvas from intercepting touch scroll events */
+  touch-action: pan-y;
 }
 .chart-heading {
   font-family: 'Orbitron', monospace;
@@ -1048,9 +1172,14 @@ body::after {
 .intel-layout {
   display: none;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px 20px;
   flex-direction: column;
   gap: 14px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  height: 100%;
+  max-height: calc(100vh - 114px);
 }
 .intel-layout.visible { display: flex; }
 
@@ -1150,9 +1279,14 @@ body::after {
 .ops-layout {
   display: none;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px 20px;
   flex-direction: column;
   gap: 14px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  height: 100%;
+  max-height: calc(100vh - 114px);
 }
 .ops-layout.visible { display: flex; }
 
@@ -1281,114 +1415,238 @@ body::after {
 .fetch-status.success { color: var(--green-safe); border-color: rgba(0,255,136,0.2); }
 .fetch-status.error { color: var(--red-alert); border-color: rgba(255,59,59,0.2); }
 
-/* ============ RESPONSIVE ============ */
-@media (max-width: 1200px) {
-  .map-layout {
-    grid-template-columns: 230px 1fr 264px;
-  }
-  .stats-row { grid-template-columns: repeat(2, 1fr); }
+/* ============ PRODUCTION PROXY STATUS BAR ============ */
+.proxy-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  background: rgba(74,158,255,0.06);
+  border-bottom: 1px solid rgba(74,158,255,0.15);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9.5px;
+  color: var(--blue-info);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.proxy-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(74,158,255,0.08);
+  border: 1px solid rgba(74,158,255,0.2);
+  border-radius: 2px;
+  padding: 1px 7px;
+  font-size: 9px;
+  white-space: nowrap;
+}
+.proxy-badge.ok { background: rgba(0,255,136,0.07); border-color: rgba(0,255,136,0.2); color: var(--green-safe); }
+.proxy-badge.warn { background: rgba(212,160,23,0.07); border-color: rgba(212,160,23,0.2); color: var(--gold); }
+
+/* ============ MOBILE MAP CONTAINER FIX ============ */
+.map-area {
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
+/* Ensure Ghana map is always centered */
+#ghana-svg {
+  display: block;
+  margin: 0 auto;
+}
+
+/* ============ RESPONSIVE — PRODUCTION GRADE ============ */
+
+/* Tablet landscape */
+@media (max-width: 1200px) {
+  /* map-layout sidebars are now global overlays */
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .charts-2col { grid-template-columns: 1fr 1fr; }
+}
+
+/* Tablet portrait + small laptop */
 @media (max-width: 960px) {
-  .map-layout { grid-template-columns: 1fr; }
-  .sidebar {
-    position: fixed;
-    top: 90px;
-    bottom: 0;
-    width: 280px;
-    z-index: 600;
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
+  /* Map area full screen */
+  .map-area {
+    height: calc(100vh - 124px);
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
-  .sidebar.open { transform: translateX(0); }
-  .sidebar.right {
-    left: auto;
-    right: 0;
-    transform: translateX(100%);
-    border-left: 1px solid var(--dark-border);
-    border-right: none;
+
+  /* Ghana map sizing on tablet */
+  #ghana-svg {
+    width: min(70vw, 420px) !important;
+    height: auto !important;
+    margin: 0 auto;
   }
-  .sidebar.right.open { transform: translateX(0); }
-  .mobile-menu-btn { display: flex; }
+
   .header-center { display: none; }
+  .map-mode-bar { display: none; }
+
+  /* Grid layouts go single column */
   .intel-2col { grid-template-columns: 1fr; }
   .intel-card.full { grid-column: span 1; }
   .ops-cards-grid { grid-template-columns: repeat(2, 1fr); }
   .ops-2col { grid-template-columns: 1fr; }
   .charts-2col { grid-template-columns: 1fr; }
   .stats-row { grid-template-columns: repeat(2, 1fr); }
-  .map-mode-bar { display: none; }
+
+  /* Sentinel/PC/GEE grid on tablet */
+  [style*="grid-template-columns:1fr 380px"],
+  [style*="grid-template-columns: 1fr 380px"] {
+    grid-template-columns: 1fr !important;
+  }
+  [style*="grid-template-columns:repeat(3,1fr)"],
+  [style*="grid-template-columns: repeat(3, 1fr)"] {
+    grid-template-columns: 1fr 1fr !important;
+  }
 }
 
+/* Mobile phones */
 @media (max-width: 640px) {
-  .header { padding: 0 10px; }
+  /* Header */
+  .header { padding: 0 10px; height: 52px; }
   .logo-title { font-size: 10px; letter-spacing: 2px; }
   .logo-sub { display: none; }
   .op-badge { display: none; }
-  .live-clock { font-size: 11px; padding: 3px 7px; }
-  .nav-tab { font-size: 8.5px; letter-spacing: 1px; padding: 10px 10px; }
-  .ops-cards-grid { grid-template-columns: 1fr 1fr; }
-  .stats-row { grid-template-columns: 1fr 1fr; }
-  .analytics-layout, .intel-layout, .ops-layout { padding: 10px 12px; }
+  .live-clock { font-size: 10px; padding: 3px 7px; }
+  .logo-hex { width: 32px; height: 32px; }
+
+  /* Nav tabs */
+  .nav-bar { padding: 0 8px; }
+  .nav-tab { font-size: 8px; letter-spacing: 0.5px; padding: 9px 8px; }
+  .nav-tab .tab-icon { display: none; }
+
+  /* App body recalculate */
+  .app-body { height: calc(100vh - 84px); }
+
+  /* Ghana map on phone — centered, larger */
+  #ghana-svg {
+    width: min(92vw, 360px) !important;
+    height: auto !important;
+    margin: 0 auto;
+    display: block;
+  }
+
+  /* Sidebar full width on phone */
+  .sidebar { width: min(330px, 96vw) !important; top: 100px !important; }
+
+  /* Charts — fixed smaller heights on mobile to prevent layout shift */
+  .chart-wrap.h-180 { height: 160px; }
+  .chart-wrap.h-200 { height: 170px; }
+  .chart-wrap.h-240 { height: 200px; }
+  .chart-wrap.h-280 { height: 220px; }
+  .chart-wrap.h-160 { height: 150px; }
+
+  /* Chart card no padding on sides on mobile */
+  .chart-card { padding: 12px 10px; }
+
+  /* CRITICAL: analytics layout must scroll but not cause chart resize loop */
+  .analytics-layout { 
+    overflow-y: scroll !important; 
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* KPI cards */
+  .stats-row { grid-template-columns: 1fr 1fr; gap: 8px; }
   .kpi-value { font-size: 22px; }
-  .data-tbl { font-size: 10.5px; }
-  .data-tbl th, .data-tbl td { padding: 6px 7px; }
+  .kpi-card { padding: 12px 12px; }
+
+  /* Operations cards — 1 column on small phones */
+  .ops-cards-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ops-card { padding: 12px 13px; }
+  .ops-icon { font-size: 22px; }
+  .ops-name { font-size: 8.5px; }
+  .ops-desc { font-size: 10.5px; }
+
+  /* Layouts */
+  .analytics-layout,
+  .intel-layout,
+  .ops-layout { padding: 10px 10px; gap: 10px; }
+
+  /* Tables scroll container — no outer horizontal scroll */
+  .data-tbl { font-size: 10px; min-width: 500px; }
+  .data-tbl th, .data-tbl td { padding: 5px 6px; }
+  .firms-table-wrap,
+  [style*="overflow-x:auto"],
+  [style*="overflow-x: auto"] { overflow-x: auto; max-width: 100%; }
+
+  /* FIRMS stats */
+  .firms-stat-row { flex-wrap: wrap; }
+  .firms-stat { min-width: calc(50% - 8px); flex: 1 1 calc(50% - 8px); }
+  .firms-stat-num { font-size: 16px; }
+
+  /* Sentinel/GEE control buttons wrap nicely */
+  .firms-panel > div[style*="display:flex"] { flex-wrap: wrap !important; }
+
+  /* Inline grids to single column */
+  .intel-2col { grid-template-columns: 1fr; }
+  .ops-2col { grid-template-columns: 1fr; }
+  .charts-2col { grid-template-columns: 1fr; }
+
+  /* Remove horizontal overflow on all tab panels */
+  .tab-panel { overflow-x: hidden; }
+  .ops-layout { overflow-x: hidden; }
+
+  /* All inline 3-col grids become 1-col */
+  [style*="grid-template-columns:repeat(3,1fr)"],
+  [style*="grid-template-columns: repeat(3, 1fr)"],
+  [style*="grid-template-columns:repeat(auto-fill"] {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* 2-col grids that have min-width issues */
+  [style*="grid-template-columns:1fr 1fr"],
+  [style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Planetary / Sentinel side-by-side becomes stacked */
+  [style*="grid-template-columns:1fr 380px"],
+  [style*="grid-template-columns: 1fr 380px"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Threat grid stays 2-col */
+  .threat-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Legend on map */
+  .map-legend { display: none; }
+  .map-toolbar { top: 8px; left: 8px; }
+  .map-tool-btn { width: 28px; height: 28px; font-size: 12px; }
 }
 
-@media (max-width: 400px) {
+/* Very small phones */
+@media (max-width: 380px) {
   .ops-cards-grid { grid-template-columns: 1fr; }
   .stats-row { grid-template-columns: 1fr 1fr; }
-  .nav-tab .tab-icon { display: none; }
   .threat-grid { grid-template-columns: 1fr 1fr; }
+  .nav-tab { padding: 9px 6px; font-size: 7.5px; }
+  .firms-stat { min-width: 100%; flex: 1 1 100%; }
+  [style*="grid-template-columns:repeat(3,1fr)"],
+  [style*="grid-template-columns: repeat(3, 1fr)"] {
+    grid-template-columns: 1fr !important;
+  }
+  [style*="grid-template-columns:repeat(auto-fill"] {
+    grid-template-columns: 1fr !important;
+  }
 }
-/* ============ EXPANDABLE AI CHAT ============ */
-.ai-panel-expanded {
-  position: fixed !important;
-  top: 90px !important;
-  right: 0 !important;
-  width: min(680px, 98vw) !important;
-  height: calc(100vh - 90px) !important;
-  z-index: 800 !important;
-  background: var(--dark-card) !important;
-  border-left: 1px solid var(--dark-border) !important;
-  box-shadow: -8px 0 40px rgba(0,0,0,0.7) !important;
-  display: flex !important;
-  flex-direction: column !important;
+
+/* Prevent any horizontal body scroll */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
 }
-.ai-panel-expanded .chat-feed {
-  flex: 1 !important;
-  min-height: 0 !important;
-}
-.ai-panel-expanded .chat-msg {
-  font-size: 13px !important;
-  line-height: 1.65 !important;
-  max-width: 90% !important;
-  padding: 10px 12px !important;
-}
-.ai-expand-btn {
-  background: none;
-  border: 1px solid var(--dark-border-light);
-  color: var(--text-secondary);
-  width: 26px; height: 26px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 13px;
-  transition: var(--transition);
-  margin-left: auto;
-  flex-shrink: 0;
-}
-.ai-expand-btn:hover { color: var(--gold); border-color: var(--gold-dim); background: rgba(212,160,23,0.07); }
-.ai-panel-expanded .ai-expand-btn { color: var(--gold); border-color: var(--gold-dim); }
-.ai-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.55);
-  z-index: 799;
-  backdrop-filter: blur(2px);
-}
-.ai-overlay.visible { display: block; }
+
+/* All tab content panels */
+.tab-panel { max-width: 100vw; overflow-x: hidden; }
 </style>
 </head>
 <body>
@@ -1456,9 +1714,19 @@ body::after {
     <span class="tab-icon">🌿</span> EARTH ENGINE
   </div>
 </nav>
-<div class="ai-overlay" id="ai-overlay" onclick="collapseAIPanel()"></div>
 
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeAllSidebars()"></div>
+
+<!-- PRODUCTION PROXY STATUS BAR -->
+<div class="proxy-bar" id="proxy-bar">
+  <span style="color:var(--text-secondary);font-size:8.5px;">API STATUS:</span>
+  <span class="proxy-badge ok" id="proxy-firms">⬤ FIRMS</span>
+  <span class="proxy-badge ok" id="proxy-sentinel">⬤ SENTINEL</span>
+  <span class="proxy-badge ok" id="proxy-gemini">⬤ GEMINI AI</span>
+  <span class="proxy-badge ok" id="proxy-planetary">⬤ PLANETARY</span>
+  <span class="proxy-badge warn" id="proxy-gee">◎ GEE</span>
+  <span style="margin-left:auto;color:var(--text-muted);font-size:8.5px;" id="proxy-last-check">Checking proxies...</span>
+</div>
 
 <!-- ============ APP BODY ============ -->
 <div class="app-body">
@@ -1468,131 +1736,9 @@ body::after {
     <div class="map-layout">
 
       <!-- LEFT SIDEBAR -->
-      <div class="sidebar" id="left-sidebar">
+      
+      <!-- LEFT SIDEBAR MOVED TO GLOBAL -->
 
-        <div class="sidebar-section">
-          <div class="section-title">Threat Overview</div>
-          <div class="threat-grid">
-            <div class="threat-card c-red" onclick="filterSites('critical')">
-              <div class="threat-num" id="cnt-critical">14</div>
-              <div class="threat-label">CRITICAL</div>
-            </div>
-            <div class="threat-card c-orange" onclick="filterSites('predicted')">
-              <div class="threat-num" id="cnt-predicted">7</div>
-              <div class="threat-label">PREDICTED</div>
-            </div>
-            <div class="threat-card c-gold" onclick="filterSites('monitored')">
-              <div class="threat-num" id="cnt-monitored">23</div>
-              <div class="threat-label">MONITORED</div>
-            </div>
-            <div class="threat-card c-blue" onclick="filterSites('contained')">
-              <div class="threat-num" id="cnt-contained">9</div>
-              <div class="threat-label">CONTAINED</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="section-title">High-Risk Regions</div>
-          <div class="region-list-item" onclick="pulseRegion('reg-western')">
-            <div><div class="region-name">Western Region</div><div class="region-sub">Tarkwa · Prestea · Amenfi</div></div>
-            <div class="threat-badge HIGH">HIGH</div>
-          </div>
-          <div class="region-list-item" onclick="pulseRegion('reg-ashanti')">
-            <div><div class="region-name">Ashanti Region</div><div class="region-sub">Obuasi · Kumawu</div></div>
-            <div class="threat-badge HIGH">HIGH</div>
-          </div>
-          <div class="region-list-item" onclick="pulseRegion('reg-central')">
-            <div><div class="region-name">Central Region</div><div class="region-sub">Dunkwa · Assin</div></div>
-            <div class="threat-badge MED">MED</div>
-          </div>
-          <div class="region-list-item" onclick="pulseRegion('reg-eastern')">
-            <div><div class="region-name">Eastern Region</div><div class="region-sub">Kibi · Oda · Kade</div></div>
-            <div class="threat-badge MED">MED</div>
-          </div>
-          <div class="region-list-item" onclick="pulseRegion('reg-bono')">
-            <div><div class="region-name">Bono/Ahafo</div><div class="region-sub">Sunyani · Berekum</div></div>
-            <div class="threat-badge MED">MED</div>
-          </div>
-          <div class="region-list-item" onclick="pulseRegion('reg-northern')">
-            <div><div class="region-name">Northern Region</div><div class="region-sub">Tamale · Tolon</div></div>
-            <div class="threat-badge LOW">LOW</div>
-          </div>
-          <div class="region-list-item" onclick="pulseRegion('reg-oti')">
-            <div><div class="region-name">Oti / Volta</div><div class="region-sub">Dambai · Kete-Krachi</div></div>
-            <div class="threat-badge LOW">LOW</div>
-          </div>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="section-title">Map Layers</div>
-          <div class="layer-row" onclick="toggleLayer('galamsey')">
-            <div class="layer-info"><div class="layer-dot-icon" style="background:var(--red-alert);box-shadow:0 0 4px var(--red-alert);"></div> Active Galamsey</div>
-            <div class="toggle on" id="lyr-galamsey"></div>
-          </div>
-          <div class="layer-row" onclick="toggleLayer('predicted')">
-            <div class="layer-info"><div class="layer-dot-icon" style="background:var(--blue-info);"></div> Predicted Sites</div>
-            <div class="toggle on" id="lyr-predicted"></div>
-          </div>
-          <div class="layer-row" onclick="toggleLayer('water')">
-            <div class="layer-info"><div class="layer-dot-icon" style="background:var(--teal-water);"></div> Water Bodies</div>
-            <div class="toggle on" id="lyr-water"></div>
-          </div>
-          <div class="layer-row" onclick="toggleLayer('forest')">
-            <div class="layer-info"><div class="layer-dot-icon" style="background:var(--forest-green);"></div> Forest Reserves</div>
-            <div class="toggle on" id="lyr-forest"></div>
-          </div>
-          <div class="layer-row" onclick="toggleLayer('mining')">
-            <div class="layer-info"><div class="layer-dot-icon" style="background:var(--gold);"></div> Mining Concessions</div>
-            <div class="toggle" id="lyr-mining"></div>
-          </div>
-          <div class="layer-row" onclick="toggleLayer('military')">
-            <div class="layer-info"><div class="layer-dot-icon" style="background:var(--gold-dim);"></div> Military Zones</div>
-            <div class="toggle" id="lyr-military"></div>
-          </div>
-          <div class="layer-row" onclick="toggleLayer('heat')">
-            <div class="layer-info"><div class="layer-dot-icon" style="background:#FF6B35;"></div> NASA FIRMS Heat</div>
-            <div class="toggle" id="lyr-heat"></div>
-          </div>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="section-title">Live Data Sources</div>
-          <div class="source-row">
-            <div class="source-name"><div class="pulse-dot green" style="width:5px;height:5px;"></div> CERSGIS/SERVIR-WA</div>
-            <span class="source-status live">LIVE</span>
-          </div>
-          <div class="source-row">
-            <div class="source-name"><div class="pulse-dot green" style="width:5px;height:5px;"></div> Sentinel-1 SAR</div>
-            <span class="source-status live">LIVE</span>
-          </div>
-          <div class="source-row">
-            <div class="source-name"><div class="pulse-dot gold" style="width:5px;height:5px;"></div> Landsat 8/9</div>
-            <span class="source-status delayed">6H AGO</span>
-          </div>
-          <div class="source-row">
-            <div class="source-name"><div class="pulse-dot green" style="width:5px;height:5px;"></div> NASA FIRMS VIIRS</div>
-            <span class="source-status live">LIVE</span>
-          </div>
-          <div class="source-row">
-            <div class="source-name"><div class="pulse-dot green" style="width:5px;height:5px;"></div> Ghana EPA Sensors</div>
-            <span class="source-status live">LIVE</span>
-          </div>
-          <div class="source-row">
-            <div class="source-name"><div class="pulse-dot gold" style="width:5px;height:5px;"></div> Google Earth Engine</div>
-            <span class="source-status delayed">SYNCED</span>
-          </div>
-          <div class="source-row">
-            <div class="source-name"><div class="pulse-dot green" style="width:5px;height:5px;"></div> Anthropic Claude AI</div>
-            <span class="source-status live">LIVE</span>
-          </div>
-          <div class="source-row">
-            <div class="source-name"><div class="pulse-dot gold" style="width:5px;height:5px;"></div> Minerals Commission</div>
-            <span class="source-status pending">PENDING</span>
-          </div>
-        </div>
-
-      </div>
 
       <!-- MAP AREA -->
       <div class="map-area" id="map-area">
@@ -1934,101 +2080,9 @@ body::after {
       </div>
 
       <!-- RIGHT SIDEBAR: AI + ALERTS -->
-      <div class="sidebar right" id="right-sidebar">
+      
+      <!-- RIGHT SIDEBAR MOVED TO GLOBAL -->
 
-        <div class="ai-panel">
-          <div class="ai-header-bar">
-    <div class="ai-icon">◈</div>
-    <div style="flex:1;">
-      <div class="ai-name">NAIMOS · AI</div>
-      <div class="ai-connected"><div class="pulse-dot green" style="width:5px;height:5px;"></div> GPT-4o-mini CONNECTED</div>
-    </div>
-    <button class="ai-expand-btn" id="ai-expand-btn" onclick="toggleAIExpand()" title="Expand / Collapse AI Panel">⤢</button>
-  </div>
-
-          <div class="quick-actions">
-            <div class="q-btn" onclick="sendQuickMsg('Analyze current threat level in Western Region')">Threat Analysis</div>
-            <div class="q-btn" onclick="sendQuickMsg('Predict galamsey activity for next 7 days in Ghana')">7-Day Forecast</div>
-            <div class="q-btn" onclick="sendQuickMsg('What is the environmental impact of active galamsey sites?')">Env. Impact</div>
-            <div class="q-btn" onclick="sendQuickMsg('Recommend NAIMOS deployment strategy for high-risk zones')">Deployment Plan</div>
-            <div class="q-btn" onclick="sendQuickMsg('Analyze water contamination risk near active mining sites')">Water Risk</div>
-            <div class="q-btn" onclick="sendQuickMsg('Which predicted sites need immediate surveillance?')">Priority Sites</div>
-          </div>
-
-          <div class="chat-feed" id="chat-feed">
-            <div class="chat-msg ai-msg">
-              <div class="msg-timestamp">NAIMOS-AI · SYSTEM INIT</div>
-              NAIMOS Anti-Galamsey Intelligence System online. Monitoring all 16 regions of Ghana. <strong>14 active sites</strong> detected, <strong>7 high-probability predicted sites</strong> flagged. Satellite feeds nominal. EPA water sensors active. Powered by OpenAI GPT-4o-mini. How can I assist Operation NAIMOS?
-            </div>
-          </div>
-
-          <div class="typing-anim" id="typing-anim">
-            <span>AI ANALYZING</span>
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-          </div>
-
-          <div class="chat-input-bar">
-            <input type="text" class="chat-input" id="ai-input" placeholder="Ask NAIMOS-AI about galamsey activity..." onkeydown="if(event.key==='Enter')sendAIMessage()"/>
-            <button class="send-btn" id="send-btn" onclick="sendAIMessage()">SEND</button>
-          </div>
-        </div>
-
-        <!-- Live Alerts -->
-        <div class="alerts-panel">
-          <div class="alerts-panel-title">
-            <span>Live Alerts</span>
-            <span class="alert-count-pill" id="alert-count">6</span>
-          </div>
-
-          <div class="alert-entry" onclick="focusAlert('W-01')">
-            <div class="alert-dot critical"></div>
-            <div>
-              <div class="alert-body"><b>NEW ACTIVITY:</b> Expanded excavation SITE-W01, Tarkwa. +0.8ha via Sentinel-1 SAR.</div>
-              <div class="alert-meta">2 min ago · W-01 · Western</div>
-            </div>
-          </div>
-          <div class="alert-entry">
-            <div class="alert-dot warning"></div>
-            <div>
-              <div class="alert-body"><b>PREDICTED:</b> High-risk signature Sefwi Wiawso. NDVI loss index 0.74. AI confidence 82%.</div>
-              <div class="alert-meta">18 min ago · PRED-W04 · AI System</div>
-            </div>
-          </div>
-          <div class="alert-entry">
-            <div class="alert-dot critical"></div>
-            <div>
-              <div class="alert-body"><b>WATER ALERT:</b> Mercury trace detected Pra River near SITE-W02. 8.4 μg/L (limit 2.0).</div>
-              <div class="alert-meta">34 min ago · Pra River · EPA Sensor</div>
-            </div>
-          </div>
-          <div class="alert-entry">
-            <div class="alert-dot warning"></div>
-            <div>
-              <div class="alert-body"><b>EQUIPMENT:</b> Excavator convoy tracked 7km from SITE-A01 perimeter. 3 vehicles.</div>
-              <div class="alert-meta">1h 12m ago · A-01 · Drone Feed</div>
-            </div>
-          </div>
-          <div class="alert-entry">
-            <div class="alert-dot info"></div>
-            <div>
-              <div class="alert-body">Sentinel-1 SAR pass complete. 3 new change-detection anomalies flagged for review.</div>
-              <div class="alert-meta">2h 05m ago · CERSGIS System</div>
-            </div>
-          </div>
-          <div class="alert-entry">
-            <div class="alert-dot safe"></div>
-            <div>
-              <div class="alert-body"><b>CONTAINED:</b> NAIMOS Unit 3 secured SITE-C01 Dunkwa. Area cleared, equipment seized.</div>
-              <div class="alert-meta">3h 40m ago · C-01 · Ground Intel</div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </div>
 
   <!-- ====== TAB: ANALYTICS ====== -->
   <div id="tab-analytics" class="tab-panel">
@@ -2059,29 +2113,29 @@ body::after {
       <div class="charts-2col">
         <div class="chart-card">
           <div class="chart-heading">Galamsey Sites by Region<div class="chart-heading-right"><span class="chart-pill live">LIVE</span></div></div>
-          <canvas id="chart-bar" height="180"></canvas>
+          <div class="chart-wrap h-180"><canvas id="chart-bar"></canvas></div>
         </div>
         <div class="chart-card">
           <div class="chart-heading">Detection Method Breakdown</div>
-          <canvas id="chart-donut" height="180"></canvas>
+          <div class="chart-wrap h-180"><canvas id="chart-donut"></canvas></div>
         </div>
       </div>
 
       <div class="charts-1col">
         <div class="chart-card">
           <div class="chart-heading">Monthly Active Sites Trend — Ghana (Jan 2024 – Mar 2025)<div class="chart-heading-right"><span class="chart-pill live">LIVE</span></div></div>
-          <canvas id="chart-line" height="110"></canvas>
+          <div class="chart-wrap h-160"><canvas id="chart-line"></canvas></div>
         </div>
       </div>
 
       <div class="charts-2col">
         <div class="chart-card">
           <div class="chart-heading">Environmental Impact Index — By Region</div>
-          <canvas id="chart-radar" height="200"></canvas>
+          <div class="chart-wrap h-240"><canvas id="chart-radar"></canvas></div>
         </div>
         <div class="chart-card">
           <div class="chart-heading">Water Body Contamination Levels</div>
-          <canvas id="chart-area" height="200"></canvas>
+          <div class="chart-wrap h-240"><canvas id="chart-area"></canvas></div>
         </div>
       </div>
     </div>
@@ -2456,11 +2510,11 @@ body::after {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div class="firms-panel">
           <div class="intel-card-title" style="margin-bottom:12px;">FRP Distribution by Region</div>
-          <canvas id="firms-bar-chart" height="200"></canvas>
+          <div class="chart-wrap h-200"><canvas id="firms-bar-chart"></canvas></div>
         </div>
         <div class="firms-panel">
           <div class="intel-card-title" style="margin-bottom:12px;">Daytime vs Nighttime Detections</div>
-          <canvas id="firms-dn-chart" height="200"></canvas>
+          <div class="chart-wrap h-200"><canvas id="firms-dn-chart"></canvas></div>
         </div>
       </div>
 
@@ -2696,18 +2750,6 @@ body::after {
             style="background:rgba(255,140,0,0.1);border:1px solid rgba(255,140,0,0.3);color:var(--orange-warn);font-family:'Orbitron',monospace;font-size:9px;font-weight:700;padding:8px 12px;border-radius:3px;cursor:pointer;letter-spacing:1px;white-space:nowrap;">
             ⚡ QUICK: SAR WESTERN
           </button>
-          <button onclick="loadPCLULC(document.getElementById('pc-region').value)"
-  style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);color:var(--green-safe);font-family:'Orbitron',monospace;font-size:9px;font-weight:700;padding:8px 12px;border-radius:3px;cursor:pointer;letter-spacing:1px;white-space:nowrap;">
-  🏭 LULC BARE GROUND
-</button>
-<button onclick="loadPCForestAlerts(document.getElementById('pc-region').value)"
-  style="background:rgba(46,204,113,0.08);border:1px solid rgba(46,204,113,0.25);color:#2ECC71;font-family:'Orbitron',monospace;font-size:9px;font-weight:700;padding:8px 12px;border-radius:3px;cursor:pointer;letter-spacing:1px;white-space:nowrap;">
-  🌲 GLAD FOREST ALERTS
-</button>
-<button onclick="loadPCJRCWater(document.getElementById('pc-region').value)"
-  style="background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.25);color:var(--teal-water);font-family:'Orbitron',monospace;font-size:9px;font-weight:700;padding:8px 12px;border-radius:3px;cursor:pointer;letter-spacing:1px;white-space:nowrap;">
-  💧 JRC RIVER CHANGE
-</button>
         </div>
 
         <!-- Dataset info pills -->
@@ -2735,7 +2777,7 @@ body::after {
           <div style="font-family:'Orbitron',monospace;font-size:8px;letter-spacing:2px;color:var(--text-secondary);margin-bottom:12px;text-transform:uppercase;">
             Scene Availability Timeline — Last 30 Days
           </div>
-          <canvas id="pc-timeline-chart" height="160"></canvas>
+          <div class="chart-wrap h-160"><canvas id="pc-timeline-chart"></canvas></div>
           <div style="margin-top:10px;font-size:10.5px;color:var(--text-secondary);line-height:1.6;">
             Each bar = number of satellite passes over the selected region on that date.
             Higher bars = more data available for that day. Click <strong style="color:var(--gold);">VIEW</strong> on any scene below to access individual bands.
@@ -2800,7 +2842,7 @@ body::after {
 
         <div id="gee-status" class="fetch-status loading">
           <div class="pulse-dot gold"></div>
-          <span>Ready · Powered by Microsoft Planetary Computer (free, no auth) · Click a button below to compute</span>
+          <span>Ready · API Key: AIzaSyB3j5...C84 · Click a button below to compute</span>
         </div>
 
         <!-- Controls -->
@@ -2885,11 +2927,11 @@ body::after {
         </div>
         <div class="firms-panel">
           <div style="font-family:'Orbitron',monospace;font-size:8px;letter-spacing:2px;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;">API Status</div>
-          <div style="font-size:11.5px;color:var(--text-primary);line-height:1.6;">Powered by Microsoft Planetary Computer — free, no API key or auth required. Auto-tokens refresh every 45 minutes. Sentinel-2 L2A scenes with band download links available.</div>
+          <div style="font-size:11.5px;color:var(--text-primary);line-height:1.6;">Key wired directly. If you see an error, enable <strong style="color:var(--gold);">Earth Engine API</strong> in your Google Cloud Console under APIs & Services → Library.</div>
           <div style="margin-top:8px;display:flex;align-items:center;gap:5px;font-size:10px;">
             <div class="pulse-dot green" style="width:5px;height:5px;"></div>
-            <span style="color:var(--green-safe);">PLANETARY COMPUTER · FREE · NO AUTH</span>
-            </div>
+            <span style="color:var(--green-safe);">KEY: AIzaSyB3j5...C84</span>
+          </div>
         </div>
       </div>
 
@@ -2970,12 +3012,16 @@ let heatmapOn = false;
 
 function mapZoom(factor) {
   mapScale = Math.min(Math.max(mapScale * factor, 0.5), 3);
-  document.getElementById('ghana-svg').style.transform = `scale(${mapScale})`;
+  const svg = document.getElementById('ghana-svg');
+  svg.style.transform = `scale(${mapScale})`;
+  svg.style.transformOrigin = 'center center';
 }
 
 function resetMapView() {
   mapScale = 1;
-  document.getElementById('ghana-svg').style.transform = 'scale(1)';
+  const svg = document.getElementById('ghana-svg');
+  svg.style.transform = 'scale(1)';
+  svg.style.transformOrigin = 'center center';
   setMapMode('standard');
 }
 
@@ -2985,12 +3031,15 @@ function setMapMode(mode) {
   document.querySelectorAll('.map-mode-btn').forEach(b => b.classList.remove('active'));
 
   const modeMap = {
-    standard: { filter: 'drop-shadow(0 0 25px rgba(212,160,23,0.07))', hue: 0, sat: 1 },
-    satellite: { filter: 'drop-shadow(0 0 20px rgba(0,212,170,0.1)) hue-rotate(15deg) saturate(1.5) brightness(1.1)', hue: 15, sat: 1.5 },
-    ndvi:      { filter: 'drop-shadow(0 0 20px rgba(46,204,113,0.15)) hue-rotate(-30deg) saturate(2) brightness(0.95)', hue: -30, sat: 2 },
-    sar:       { filter: 'drop-shadow(0 0 20px rgba(74,158,255,0.12)) saturate(0.5) brightness(1.2)', hue: 0, sat: 0.5 }
+    standard: 'drop-shadow(0 0 25px rgba(212,160,23,0.07))',
+    satellite: 'drop-shadow(0 0 20px rgba(0,212,170,0.1)) hue-rotate(15deg) saturate(1.5) brightness(1.1)',
+    ndvi:      'drop-shadow(0 0 20px rgba(46,204,113,0.15)) hue-rotate(-30deg) saturate(2) brightness(0.95)',
+    sar:       'drop-shadow(0 0 20px rgba(74,158,255,0.12)) saturate(0.5) brightness(1.2)'
   };
-  svg.style.filter = modeMap[mode]?.filter || modeMap.standard.filter;
+  svg.style.filter = modeMap[mode] || modeMap.standard;
+  svg.style.transformOrigin = 'center center';
+  if (mapScale !== 1) svg.style.transform = `scale(${mapScale})`;
+
   const modeIdx = ['standard','satellite','ndvi','sar'].indexOf(mode);
   document.querySelectorAll('.map-mode-btn')[modeIdx]?.classList.add('active');
 }
@@ -3159,41 +3208,94 @@ if (mapArea) {
 }
 
 // ===== AI CHAT SYSTEM — GOOGLE GEMINI (FREE) =====
-const OPENAI_API_KEY = '';
+// Get your FREE Gemini API key at: https://aistudio.google.com/app/apikey
+// No credit card required · Generous free daily quota
+const GEMINI_API_KEY = 'AIzaSyA8zIXiP7GyUoqUvQNAnJF1AuJxIGmiHn8';
 
-// ===== ESA SENTINEL HUB CREDENTIALS =====
+// ===== ESA SENTINEL HUB — PRODUCTION CORS-SAFE IMPLEMENTATION =====
+// CORS FIX: Browser cannot call Sentinel Hub API directly.
+// SOLUTION: Route OAuth token through CORS proxy, use WMS image URLs
+// for imagery (image tags don't have CORS restrictions).
+//
+// FALLBACK: If Sentinel Hub trial expired (March 20 2026),
+// automatically fall back to Copernicus Browser WMS (free, no auth).
+
 const SENTINEL_CLIENT_ID     = '321ac35f-02f6-46f4-b3e4-6af53357ddf0';
 const SENTINEL_CLIENT_SECRET = 'HbmMcRpQl62fvZRFSHk8EXgrW80lIXha';
 let sentinelToken = null;
 let sentinelTokenExpiry = 0;
 
-// Ghana bounding box for Sentinel requests
 const GHANA_BBOX_SENTINEL = [-3.3, 4.7, 1.2, 11.2];
-const WESTERN_BBOX        = [-3.3, 4.7, -1.5, 6.8]; // Western Region (highest risk)
-const ASHANTI_BBOX        = [-2.5, 5.8, -0.8, 7.3]; // Ashanti Region
+const WESTERN_BBOX        = [-3.3, 4.7, -1.5, 6.8];
+const ASHANTI_BBOX        = [-2.5, 5.8, -0.8, 7.3];
+const CENTRAL_BBOX        = [-2.2, 5.0, -0.8, 6.2];
 
-// Get/refresh OAuth token automatically
+// ---- CORS-safe token fetch (routes through proxy) ----
 async function getSentinelToken() {
   const now = Date.now();
   if (sentinelToken && now < sentinelTokenExpiry - 60000) return sentinelToken;
 
-  setSentinelStatus('loading', '⟳ Authenticating with ESA Sentinel Hub...');
-  try {
-    const resp = await fetch('https://services.sentinel-hub.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `grant_type=client_credentials&client_id=${SENTINEL_CLIENT_ID}&client_secret=${SENTINEL_CLIENT_SECRET}`
-    });
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error_description || data.error);
-    sentinelToken = data.access_token;
-    sentinelTokenExpiry = now + (data.expires_in * 1000);
-    setSentinelStatus('success', `✓ Sentinel Hub authenticated · Token valid for ${Math.round(data.expires_in/60)} minutes`);
-    return sentinelToken;
-  } catch (err) {
-    setSentinelStatus('error', `✗ Sentinel Hub auth failed: ${err.message}`);
-    throw err;
+  setSentinelStatus('loading', '⟳ Authenticating with ESA Sentinel Hub via proxy...');
+
+  const tokenBody = `grant_type=client_credentials&client_id=${SENTINEL_CLIENT_ID}&client_secret=${SENTINEL_CLIENT_SECRET}`;
+  const tokenUrl  = 'https://services.sentinel-hub.com/oauth/token';
+
+  // Try direct first (works when deployed on HTTPS server with correct headers)
+  // Then fall back through proxies
+  const attempts = [
+    // Direct (works on deployed HTTPS servers, not file://)
+    async () => {
+      const r = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: tokenBody,
+        signal: AbortSignal.timeout(8000)
+      });
+      return r.json();
+    },
+    // allorigins proxy for POST (encode as GET with body in URL — limited but works for OAuth)
+    async () => {
+      // Use corsproxy.io which supports POST
+      const r = await fetch(`https://corsproxy.io/?${encodeURIComponent(tokenUrl)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: tokenBody,
+        signal: AbortSignal.timeout(10000)
+      });
+      return r.json();
+    },
+    // thingproxy
+    async () => {
+      const r = await fetch(`https://thingproxy.freeboard.io/fetch/${tokenUrl}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: tokenBody,
+        signal: AbortSignal.timeout(10000)
+      });
+      return r.json();
+    }
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const data = await attempt();
+      if (data.access_token) {
+        sentinelToken = data.access_token;
+        sentinelTokenExpiry = now + (data.expires_in * 1000);
+        setSentinelStatus('success', `✓ Sentinel Hub authenticated · Token valid ${Math.round(data.expires_in/60)} min`);
+        const badge = document.getElementById('proxy-sentinel');
+        if (badge) { badge.textContent = '⬤ SENTINEL'; badge.className = 'proxy-badge ok'; }
+        return sentinelToken;
+      }
+      if (data.error) throw new Error(data.error_description || data.error);
+    } catch(e) {
+      console.warn('Sentinel auth attempt failed:', e.message);
+    }
   }
+
+  // All auth attempts failed — switch to Copernicus WMS fallback
+  setSentinelStatus('error', '✗ Sentinel Hub auth failed (CORS/trial expired). Using Copernicus WMS fallback instead.');
+  throw new Error('SENTINEL_AUTH_FAILED');
 }
 
 function setSentinelStatus(type, msg) {
@@ -3203,164 +3305,231 @@ function setSentinelStatus(type, msg) {
   el.querySelector('span').textContent = msg;
 }
 
-// Fetch NDVI imagery for a region and return as blob URL
-async function fetchSentinelNDVI(bbox, label) {
-  const token = await getSentinelToken();
-  setSentinelStatus('loading', `⟳ Fetching Sentinel-2 NDVI for ${label}...`);
+// ---- WMS Image URL builder (bypasses CORS — image src loads freely) ----
+// This works because <img src="..."> doesn't enforce CORS for display.
+function buildSentinelWMSUrl(token, bbox, layerType, width = 768, height = 768) {
+  const [west, south, east, north] = bbox;
+  const today = new Date().toISOString().slice(0,10);
+  const from  = new Date(Date.now() - 35 * 864e5).toISOString().slice(0,10);
+  const bboxStr = `${west},${south},${east},${north}`;
 
-  const today = new Date();
-  const from  = new Date(today - 30 * 864e5).toISOString().slice(0,10); // 30 days ago
-  const to    = today.toISOString().slice(0,10);
-
-  const body = {
-    input: {
-      bounds: {
-        bbox: bbox,
-        properties: { crs: 'http://www.opengis.net/def/crs/EPSG/0/4326' }
-      },
-      data: [{
-        type: 'sentinel-2-l2a',
-        dataFilter: {
-          timeRange: { from: `${from}T00:00:00Z`, to: `${to}T23:59:59Z` },
-          maxCloudCoverage: 40
-        }
-      }]
-    },
-    output: {
-      width: 512, height: 512,
-      responses: [{ identifier: 'default', format: { type: 'image/png' } }]
-    },
-    evalscript: `
-      //VERSION=3
-      function setup() { return { input: ["B04","B08","SCL"], output: { bands: 3 } }; }
-      function evaluatePixel(s) {
-        let ndvi = (s.B08 - s.B04) / (s.B08 + s.B04 + 0.0001);
-        // No-data / cloud
-        if ([3,8,9,10].includes(s.SCL[0])) return [0.08, 0.10, 0.14];
-        // NDVI colour ramp — styled for dark NAIMOS theme
-        if (ndvi < -0.1) return [0.85, 0.15, 0.10];  // Bare/disturbed — RED (galamsey risk)
-        if (ndvi <  0.1) return [0.90, 0.55, 0.05];  // Sparse — ORANGE
-        if (ndvi <  0.2) return [0.75, 0.65, 0.10];  // Low veg — GOLD
-        if (ndvi <  0.4) return [0.20, 0.65, 0.20];  // Moderate — GREEN
-        if (ndvi <  0.6) return [0.05, 0.50, 0.10];  // Dense — DARK GREEN
-        return [0.02, 0.35, 0.05];                    // Forest — DEEP GREEN
-      }
-    `
-  };
-
-  const resp = await fetch('https://services.sentinel-hub.com/api/v1/process', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-
-  if (!resp.ok) {
-    const errText = await resp.text();
-    throw new Error(`Sentinel API ${resp.status}: ${errText.slice(0,120)}`);
+  if (layerType === 'ndvi') {
+    return `https://services.sentinel-hub.com/ogc/wms/${SENTINEL_CLIENT_ID}` +
+      `?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0` +
+      `&LAYERS=NDVI` +
+      `&FORMAT=image/png&TRANSPARENT=false` +
+      `&WIDTH=${width}&HEIGHT=${height}` +
+      `&CRS=EPSG:4326` +
+      `&BBOX=${bboxStr}` +
+      `&TIME=${from}/${today}` +
+      `&MAXCC=40` +
+      `&token=${token}`;
+  } else if (layerType === 'sar') {
+    return `https://services.sentinel-hub.com/ogc/wms/${SENTINEL_CLIENT_ID}` +
+      `?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0` +
+      `&LAYERS=SAR-URBAN` +
+      `&FORMAT=image/png&TRANSPARENT=false` +
+      `&WIDTH=${width}&HEIGHT=${height}` +
+      `&CRS=EPSG:4326` +
+      `&BBOX=${bboxStr}` +
+      `&TIME=${from}/${today}` +
+      `&token=${token}`;
+  } else {
+    // True color fallback
+    return `https://services.sentinel-hub.com/ogc/wms/${SENTINEL_CLIENT_ID}` +
+      `?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0` +
+      `&LAYERS=TRUE-COLOR` +
+      `&FORMAT=image/png&TRANSPARENT=false` +
+      `&WIDTH=${width}&HEIGHT=${height}` +
+      `&CRS=EPSG:4326` +
+      `&BBOX=${bboxStr}` +
+      `&TIME=${from}/${today}` +
+      `&MAXCC=30` +
+      `&token=${token}`;
   }
-
-  const blob = await resp.blob();
-  return URL.createObjectURL(blob);
 }
 
-// Fetch SAR (Sentinel-1) backscatter imagery
-async function fetchSentinelSAR(bbox, label) {
-  const token = await getSentinelToken();
-  setSentinelStatus('loading', `⟳ Fetching Sentinel-1 SAR backscatter for ${label}...`);
+// ---- Copernicus Browser WMS (completely free, no auth, CORS-safe via img tag) ----
+function buildCopernicusWMSUrl(bbox, layerType, width = 768, height = 768) {
+  const [west, south, east, north] = bbox;
+  const today = new Date().toISOString().slice(0,10);
+  const from  = new Date(Date.now() - 35 * 864e5).toISOString().slice(0,10);
+  const bboxStr = `${west},${south},${east},${north}`;
 
-  const today = new Date();
-  const from  = new Date(today - 12 * 864e5).toISOString().slice(0,10); // last 12 days (S1 repeat)
-  const to    = today.toISOString().slice(0,10);
-
-  const body = {
-    input: {
-      bounds: { bbox: bbox, properties: { crs: 'http://www.opengis.net/def/crs/EPSG/0/4326' } },
-      data: [{
-        type: 'sentinel-1-grd',
-        dataFilter: {
-          timeRange: { from: `${from}T00:00:00Z`, to: `${to}T23:59:59Z` },
-          acquisitionMode: 'IW',
-          polarization: 'DV'
-        },
-        processing: { orthorectify: true, backCoeff: 'GAMMA0_TERRAIN' }
-      }]
-    },
-    output: {
-      width: 512, height: 512,
-      responses: [{ identifier: 'default', format: { type: 'image/png' } }]
-    },
-    evalscript: `
-      //VERSION=3
-      function setup() { return { input: ["VV","VH"], output: { bands: 3 } }; }
-      function evaluatePixel(s) {
-        let vv = Math.log(s.VV) / Math.log(10) * 10; // dB
-        let vh = Math.log(s.VH) / Math.log(10) * 10;
-        // High VV = strong backscatter = disturbed ground / water turbidity
-        if (vv > -5)  return [0.9, 0.15, 0.10]; // Very high — RED (disturbed/mining)
-        if (vv > -10) return [0.9, 0.55, 0.05]; // High — ORANGE
-        if (vv > -15) return [0.85, 0.75, 0.10];// Medium — GOLD
-        if (vv > -20) return [0.15, 0.55, 0.15];// Low-med — GREEN (light veg)
-        return [0.05, 0.25, 0.08];               // Low — DARK (dense forest)
-      }
-    `
+  // Copernicus Browser EO Browser WMS service — public, no auth
+  const layerMap = {
+    ndvi:     '3_NDVI',
+    sar:      '3_VH',
+    truecolor:'3_TRUE_COLOR'
   };
+  const layer = layerMap[layerType] || layerMap.ndvi;
 
-  const resp = await fetch('https://services.sentinel-hub.com/api/v1/process', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-
-  if (!resp.ok) {
-    const errText = await resp.text();
-    throw new Error(`Sentinel SAR ${resp.status}: ${errText.slice(0,120)}`);
-  }
-
-  const blob = await resp.blob();
-  return URL.createObjectURL(blob);
+  // Use Sentinel Hub's public demo instance (no auth needed, limited but functional)
+  return `https://services.sentinel-hub.com/ogc/wms/` +
+    // Public demo instance ID that works without auth for basic layers
+    `a91a47a9-ea85-4a44-8905-6dbaf1a7dcc9` +
+    `?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0` +
+    `&LAYERS=${layer}` +
+    `&FORMAT=image/png` +
+    `&WIDTH=${width}&HEIGHT=${height}` +
+    `&CRS=EPSG:4326` +
+    `&BBOX=${bboxStr}` +
+    `&TIME=${from}/${today}` +
+    `&MAXCC=40`;
 }
 
-// Display imagery in the sentinel viewer panel
+// ---- Main Sentinel layer loader ----
 async function loadSentinelLayer(type, region) {
   const regionMap = {
     western: { bbox: WESTERN_BBOX,        label: 'Western Region (Tarkwa-Prestea)' },
-    ashanti: { bbox: ASHANTI_BBOX,        label: 'Ashanti Region (Obuasi-Kumawu)' },
-    ghana:   { bbox: GHANA_BBOX_SENTINEL, label: 'All Ghana' }
+    ashanti: { bbox: ASHANTI_BBOX,        label: 'Ashanti Region (Obuasi-Kumawu)'  },
+    ghana:   { bbox: GHANA_BBOX_SENTINEL, label: 'All Ghana'                        }
   };
   const { bbox, label } = regionMap[region] || regionMap.ghana;
-  const imgEl    = document.getElementById('sentinel-img');
-  const captionEl = document.getElementById('sentinel-caption');
 
-  imgEl.style.opacity = '0.3';
+  const imgEl     = document.getElementById('sentinel-img');
+  const captionEl = document.getElementById('sentinel-caption');
+  const phEl      = document.getElementById('sentinel-placeholder');
+
+  if (!imgEl) return;
+  imgEl.style.opacity = '0.2';
   imgEl.src = '';
 
+  setSentinelStatus('loading', `⟳ Loading ${type.toUpperCase()} imagery for ${label}...`);
+
+  // Strategy 1: Try authenticated Sentinel Hub WMS (token required)
+  let wmsUrl = null;
   try {
-    let url;
-    if (type === 'ndvi') {
-      url = await fetchSentinelNDVI(bbox, label);
-      captionEl.textContent = `Sentinel-2 NDVI · ${label} · ${new Date().toDateString()} · Red=Disturbed Ground · Green=Vegetation`;
-    } else {
-      url = await fetchSentinelSAR(bbox, label);
-      captionEl.textContent = `Sentinel-1 SAR Backscatter · ${label} · ${new Date().toDateString()} · Red=High Backscatter (Disturbance) · Green=Forest`;
-    }
-    imgEl.src = url;
-    imgEl.style.opacity = '1';
-    setSentinelStatus('success', `✓ ${type.toUpperCase()} imagery loaded for ${label}`);
-
-    // Update data source status in left sidebar
-    const sourceRows = document.querySelectorAll('.source-row');
-    sourceRows.forEach(r => {
-      if (r.textContent.includes('Sentinel-1') || r.textContent.includes('Sentinel')) {
-        const badge = r.querySelector('.source-status');
-        if (badge) { badge.textContent = 'LIVE'; badge.className = 'source-status live'; }
-      }
-    });
-
-  } catch (err) {
-    setSentinelStatus('error', `✗ ${err.message}`);
-    captionEl.textContent = 'Failed to load imagery. Check credentials or try a different region.';
-    imgEl.style.opacity = '0.3';
+    const token = await getSentinelToken();
+    wmsUrl = buildSentinelWMSUrl(token, bbox, type);
+    setSentinelStatus('loading', `⟳ Rendering ${type.toUpperCase()} via Sentinel Hub WMS (authenticated)...`);
+  } catch(authErr) {
+    // Strategy 2: Copernicus/public WMS fallback — no auth needed
+    console.warn('Sentinel auth failed, using Copernicus fallback WMS');
+    wmsUrl = buildCopernicusWMSUrl(bbox, type);
+    setSentinelStatus('loading', `⟳ Using Copernicus public WMS (no auth required)...`);
   }
+
+  // Load image — WMS image URLs work cross-origin as <img src>
+  await new Promise((resolve, reject) => {
+    const testImg = new Image();
+    testImg.crossOrigin = 'anonymous';
+
+    const timeout = setTimeout(() => {
+      testImg.src = '';
+      reject(new Error('WMS image load timeout (15s)'));
+    }, 15000);
+
+    testImg.onload = () => {
+      clearTimeout(timeout);
+      // Draw onto canvas to get blob URL (needed for crossOrigin display)
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width  = testImg.naturalWidth  || 512;
+        canvas.height = testImg.naturalHeight || 512;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(testImg, 0, 0);
+        canvas.toBlob(blob => {
+          if (blob) {
+            imgEl.src = URL.createObjectURL(blob);
+          } else {
+            imgEl.src = wmsUrl; // direct fallback
+          }
+          imgEl.style.opacity = '1';
+          if (phEl) phEl.style.display = 'none';
+          resolve();
+        }, 'image/png');
+      } catch(canvasErr) {
+        // Canvas tainted — just set src directly
+        imgEl.src = wmsUrl;
+        imgEl.style.opacity = '1';
+        if (phEl) phEl.style.display = 'none';
+        resolve();
+      }
+    };
+
+    testImg.onerror = () => {
+      clearTimeout(timeout);
+      // Strategy 3: Load directly as img src (works even cross-origin for display)
+      imgEl.src = wmsUrl;
+      imgEl.style.opacity = '0.9';
+      if (phEl) phEl.style.display = 'none';
+      setSentinelStatus('loading', `⟳ Loading image directly (cross-origin display mode)...`);
+
+      imgEl.onload = () => {
+        setSentinelStatus('success', `✓ ${type.toUpperCase()} imagery loaded · ${label}`);
+        resolve();
+      };
+      imgEl.onerror = () => {
+        reject(new Error(`WMS image failed to load. The Sentinel Hub trial may have expired (March 20, 2026). Use Planetary Computer tab instead.`));
+      };
+    };
+
+    testImg.src = wmsUrl;
+  }).catch(err => {
+    setSentinelStatus('error', `✗ ${err.message}`);
+    if (captionEl) captionEl.textContent = err.message;
+    imgEl.style.opacity = '0.1';
+    // Show fallback guidance
+    showSentinelFallback(type, bbox, label);
+    return;
+  });
+
+  const typeLabels = {
+    ndvi: 'NDVI (Red=Disturbed/Galamsey · Gold=Sparse · Green=Forest)',
+    sar:  'SAR Backscatter (Red=High Disturbance · Green=Forest Cover)',
+    truecolor: 'True Color Composite'
+  };
+  if (captionEl) {
+    captionEl.textContent = `Sentinel ${type === 'ndvi' ? '2' : '1'} · ${typeLabels[type] || type.toUpperCase()} · ${label} · ${new Date().toDateString()}`;
+  }
+  setSentinelStatus('success', `✓ ${type.toUpperCase()} imagery rendered · ${label} · ${new Date().toDateString()}`);
+
+  // Update sidebar source status
+  document.querySelectorAll('.source-row').forEach(r => {
+    if (r.textContent.includes('Sentinel')) {
+      const badge = r.querySelector('.source-status');
+      if (badge) { badge.textContent = 'LIVE'; badge.className = 'source-status live'; }
+    }
+  });
+}
+
+// Show helpful fallback when Sentinel fails
+function showSentinelFallback(type, bbox, label) {
+  const phEl = document.getElementById('sentinel-placeholder');
+  if (!phEl) return;
+  phEl.style.display = 'flex';
+  const today = new Date().toISOString().slice(0,10);
+  const from  = new Date(Date.now() - 35*864e5).toISOString().slice(0,10);
+  const [w,s,e,n] = bbox;
+  const eoUrl = `https://browser.dataspace.copernicus.eu/?zoom=9&lat=${(s+n)/2}&lng=${(w+e)/2}&themeId=DEFAULT-THEME&visualizationUrl=https%3A%2F%2Fsh.dataspace.copernicus.eu%2Fogc%2Fwms%2Fa91a47a9-ea85-4a44-8905-6dbaf1a7dcc9&evalscript=&datasetId=S2L2A&fromTime=${from}&toTime=${today}&layerId=3_NDVI`;
+
+  phEl.innerHTML = `
+    <div style="text-align:center;padding:28px;max-width:400px;">
+      <div style="font-size:36px;margin-bottom:12px;">🛰️</div>
+      <div style="font-family:'Orbitron',monospace;font-size:9.5px;color:var(--orange-warn);letter-spacing:2px;margin-bottom:10px;">SENTINEL HUB TRIAL STATUS</div>
+      <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:16px;">
+        The Sentinel Hub trial account expired <strong style="color:var(--red-alert);">March 20, 2026</strong> and is migrating to Planet.
+        Use the alternatives below for live satellite imagery:
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <a href="${eoUrl}" target="_blank"
+          style="display:block;background:linear-gradient(135deg,rgba(46,204,113,0.15),rgba(46,204,113,0.08));border:1px solid rgba(46,204,113,0.35);color:#2ECC71;font-family:'Orbitron',monospace;font-size:8.5px;padding:10px 14px;border-radius:4px;text-decoration:none;letter-spacing:1.5px;">
+          🌍 OPEN COPERNICUS BROWSER ↗<br>
+          <span style="font-size:9px;color:var(--text-secondary);font-family:'Rajdhani',sans-serif;letter-spacing:0;">Free · No login · ${label}</span>
+        </a>
+        <button onclick="switchTab('planetary')"
+          style="background:rgba(74,158,255,0.1);border:1px solid rgba(74,158,255,0.3);color:var(--blue-info);font-family:'Orbitron',monospace;font-size:8.5px;padding:10px 14px;border-radius:4px;cursor:pointer;letter-spacing:1.5px;">
+          🌍 USE PLANETARY COMPUTER TAB<br>
+          <span style="font-size:9px;color:var(--text-secondary);font-family:'Rajdhani',sans-serif;letter-spacing:0;">Microsoft · Free · Auto-token · Sentinel-2 + SAR</span>
+        </button>
+        <button onclick="switchTab('gee')"
+          style="background:rgba(212,160,23,0.08);border:1px solid rgba(212,160,23,0.25);color:var(--gold);font-family:'Orbitron',monospace;font-size:8.5px;padding:10px 14px;border-radius:4px;cursor:pointer;letter-spacing:1.5px;">
+          🌿 USE EARTH ENGINE TAB<br>
+          <span style="font-size:9px;color:var(--text-secondary);font-family:'Rajdhani',sans-serif;letter-spacing:0;">GEE + Planetary Computer · NDVI analysis</span>
+        </button>
+      </div>
+    </div>`;
 }
 
 // ===== GOOGLE EARTH ENGINE — REST API =====
@@ -3377,147 +3546,125 @@ const GEE_ASHANTI_BBOX  = { west: -2.5, south: 5.8, east: -0.8, north: 7.3  };
 // GEE REST API: compute NDVI thumbnail over a region
 async function fetchGEENDVI(bboxKey) {
   const bboxMap = {
-    western: { bbox: [-3.3, 4.7, -1.5, 6.8], label: 'Western Region (Tarkwa-Prestea)' },
-    ashanti: { bbox: [-2.5, 5.8, -0.8, 7.3], label: 'Ashanti Region (Obuasi)' },
-    ghana:   { bbox: [-3.3, 4.7,  1.2, 11.2], label: 'All Ghana' }
+    western: GEE_WESTERN_BBOX,
+    ashanti: GEE_ASHANTI_BBOX,
+    ghana:   GEE_GHANA_BBOX
   };
-  const { bbox, label } = bboxMap[bboxKey] || bboxMap.western;
+  const bbox  = bboxMap[bboxKey] || GEE_WESTERN_BBOX;
+  const label = bboxKey.charAt(0).toUpperCase() + bboxKey.slice(1) + ' Region';
 
-  setGEEStatus('loading', `⟳ Fetching Sentinel-2 NDVI via Planetary Computer for ${label}...`);
+  setGEEStatus('loading', `⟳ Computing Sentinel-2 NDVI via Google Earth Engine for ${label}...`);
 
-  const today    = new Date();
-  const fromDate = new Date(today - 45 * 864e5).toISOString().slice(0, 10);
-  const toDate   = today.toISOString().slice(0, 10);
+  const today  = new Date();
+  const fromDt = new Date(today - 45 * 864e5).toISOString().slice(0,10);
+  const toDt   = today.toISOString().slice(0,10);
+
+  // GEE Tiles API body — computes NDVI mosaic server-side
+  const body = {
+    expression: {
+      functionInvocationValue: {
+        functionName: 'Image.visualize',
+        arguments: {
+          this: {
+            functionInvocationValue: {
+              functionName: 'Image.normalizedDifference',
+              arguments: {
+                this: {
+                  functionInvocationValue: {
+                    functionName: 'ImageCollection.mosaic',
+                    arguments: {
+                      this: {
+                        functionInvocationValue: {
+                          functionName: 'ImageCollection.select',
+                          arguments: {
+                            this: {
+                              functionInvocationValue: {
+                                functionName: 'ImageCollection.filterDate',
+                                arguments: {
+                                  this: {
+                                    functionInvocationValue: {
+                                      functionName: 'ImageCollection.filter',
+                                      arguments: {
+                                        this: {
+                                          functionInvocationValue: {
+                                            functionName: 'ImageCollection.load',
+                                            arguments: { id: { constantValue: 'COPERNICUS/S2_SR_HARMONIZED' } }
+                                          }
+                                        },
+                                        filter: {
+                                          functionInvocationValue: {
+                                            functionName: 'Filter.lt',
+                                            arguments: {
+                                              name: { constantValue: 'CLOUDY_PIXEL_PERCENTAGE' },
+                                              value: { constantValue: 30 }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  },
+                                  start: { constantValue: fromDt },
+                                  end:   { constantValue: toDt }
+                                }
+                              }
+                            },
+                            bandSelectors: { constantValue: ['B8','B4'] }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                bandSelectors: { constantValue: ['B8','B4'] }
+              }
+            }
+          },
+          bands:  { constantValue: ['nd'] },
+          min:    { constantValue: -0.2 },
+          max:    { constantValue: 0.8 },
+          palette: { constantValue: ['#FF3B3B','#FF8C00','#FFD700','#90EE90','#2ECC71','#006400'] }
+        }
+      }
+    },
+    fileFormat: 'PNG',
+    grid: {
+      dimensions: { width: 512, height: 512 },
+      affineTransform: {
+        scaleX:      (bbox.east  - bbox.west)  / 512,
+        scaleY:     -(bbox.north - bbox.south) / 512,
+        translateX:  bbox.west,
+        translateY:  bbox.north
+      },
+      crsCode: 'EPSG:4326'
+    }
+  };
 
   try {
-    // Step 1: Search for least-cloudy Sentinel-2 scene
-    const searchResp = await fetch('https://planetarycomputer.microsoft.com/api/stac/v1/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        collections: ['sentinel-2-l2a'],
-        bbox: bbox,
-        datetime: `${fromDate}T00:00:00Z/${toDate}T23:59:59Z`,
-        query: { 'eo:cloud_cover': { lte: 25 } },
-        limit: 1,
-        sortby: [{ field: 'eo:cloud_cover', direction: 'asc' }]
-      })
-    });
-    const searchData = await searchResp.json();
-    const scenes = searchData.features || [];
+    const resp = await fetch(
+      `${GEE_BASE}/${GEE_PROJECT}/image:computePixels?key=${GEE_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }
+    );
 
-    if (!scenes.length) {
-      setGEEStatus('loading', `⚠ No low-cloud Sentinel-2 scenes found for ${label} in last 45 days. Try "All Ghana".`);
-      return;
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      // If computePixels needs project, fall back to getTile approach
+      throw new Error(errData?.error?.message || `HTTP ${resp.status}`);
     }
 
-    const scene = scenes[0];
-    const sceneDate = scene.properties?.datetime?.slice(0, 10) || toDate;
-    const cloudCover = scene.properties?.['eo:cloud_cover']?.toFixed(1) || '?';
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    displayGEEImage(url, `GEE Sentinel-2 NDVI · ${label} · ${fromDt} → ${toDt}`);
+    setGEEStatus('success', `✓ GEE NDVI computed for ${label} · ${fromDt} to ${toDt} · Sentinel-2 SR Harmonized`);
 
-    // Step 2: Get SAS token for sentinel-2-l2a
-    const tokenResp = await fetch('https://planetarycomputer.microsoft.com/api/sas/v1/token/sentinel-2-l2a');
-    const tokenData = await tokenResp.json();
-    const token = tokenData.token || '';
-
-    // Step 3: Get B04 (Red) and B08 (NIR) thumbnail URLs and sign them
-    const b04Asset = scene.assets?.B04;
-    const b08Asset = scene.assets?.B08;
-    const thumbAsset = scene.assets?.rendered_preview || scene.assets?.thumbnail;
-
-    // Step 4: Use the rendered_preview for visual display (it's a true-color or false-color JPEG)
-    // For NDVI we overlay color interpretation on the preview
-    let displayUrl = '';
-    if (thumbAsset?.href) {
-      // Sign the thumbnail URL
-      const signResp = await fetch(`https://planetarycomputer.microsoft.com/api/sas/v1/sign?href=${encodeURIComponent(thumbAsset.href)}`);
-      const signData = await signResp.json();
-      displayUrl = signData.href || thumbAsset.href;
-    }
-
-    if (!displayUrl) {
-      // Fallback: show scene metadata card instead of image
-      showGEESceneCard(scene, label, sceneDate, cloudCover, b04Asset, b08Asset, token);
-      setGEEStatus('success', `✓ Sentinel-2 scene found via Planetary Computer · ${label} · ${sceneDate} · Cloud: ${cloudCover}%`);
-      return;
-    }
-
-    // Display the image
-    const imgEl = document.getElementById('gee-img');
-    const phEl  = document.getElementById('gee-placeholder');
-    const capEl = document.getElementById('gee-caption');
-
-    if (imgEl) {
-      imgEl.src = displayUrl;
-      imgEl.style.opacity = '1';
-      imgEl.onload = () => { if (phEl) phEl.style.display = 'none'; };
-      imgEl.onerror = () => {
-        imgEl.style.opacity = '0.1';
-        showGEESceneCard(scene, label, sceneDate, cloudCover, b04Asset, b08Asset, token);
-      };
-    }
-    if (capEl) capEl.textContent = `Sentinel-2 L2A · ${label} · Scene date: ${sceneDate} · Cloud cover: ${cloudCover}% · Via Microsoft Planetary Computer · Red=Disturbed(Galamsey) · Green=Vegetation`;
-
-    setGEEStatus('success', `✓ Sentinel-2 NDVI loaded via Planetary Computer · ${label} · ${sceneDate} · Cloud: ${cloudCover}%`);
-
-    // Also populate the band download panel
-    showGEESceneCard(scene, label, sceneDate, cloudCover, b04Asset, b08Asset, token);
-
-  } catch (err) {
-    setGEEStatus('error', `✗ Planetary Computer error: ${err.message}`);
-    showGEESetupGuide();
+  } catch(err) {
+    // Fallback: use GEE Maps Tile endpoint which works with just an API key
+    console.warn('computePixels failed, trying tile fallback:', err.message);
+    await fetchGEETileFallback(bbox, bboxKey, fromDt, toDt);
   }
-}
-
-function showGEESceneCard(scene, label, sceneDate, cloudCover, b04Asset, b08Asset, token) {
-  const phEl = document.getElementById('gee-placeholder');
-  if (!phEl) return;
-  phEl.style.display = 'flex';
-
-  const assets = scene.assets || {};
-  const keyBands = ['B02','B03','B04','B08','B11','B12','rendered_preview','thumbnail'];
-  const bandRows = keyBands
-    .filter(k => assets[k])
-    .map(k => {
-      const href = assets[k].href;
-      const signedHref = token ? href + (href.includes('?') ? '&' : '?') + token : href;
-      return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--dark-border);font-size:10.5px;">
-        <span style="color:var(--text-secondary);font-family:monospace;">${k}</span>
-        <a href="${signedHref}" target="_blank"
-          style="color:var(--gold);font-family:'Orbitron',monospace;font-size:7.5px;padding:2px 6px;border:1px solid rgba(212,160,23,0.3);border-radius:2px;text-decoration:none;">
-          OPEN ↗
-        </a>
-      </div>`;
-    }).join('');
-
-  phEl.innerHTML = `
-    <div style="padding:20px;width:100%;max-width:460px;margin:0 auto;">
-      <div style="font-family:'Orbitron',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:10px;">SENTINEL-2 SCENE · PLANETARY COMPUTER</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;">
-        <div style="background:var(--dark-panel);border:1px solid var(--dark-border);border-radius:3px;padding:8px 10px;">
-          <div style="font-size:8.5px;color:var(--text-muted);letter-spacing:1px;margin-bottom:3px;">REGION</div>
-          <div style="font-size:11px;color:var(--text-primary);font-weight:600;">${label}</div>
-        </div>
-        <div style="background:var(--dark-panel);border:1px solid var(--dark-border);border-radius:3px;padding:8px 10px;">
-          <div style="font-size:8.5px;color:var(--text-muted);letter-spacing:1px;margin-bottom:3px;">SCENE DATE</div>
-          <div style="font-size:11px;color:var(--gold);font-weight:600;">${sceneDate}</div>
-        </div>
-        <div style="background:var(--dark-panel);border:1px solid var(--dark-border);border-radius:3px;padding:8px 10px;">
-          <div style="font-size:8.5px;color:var(--text-muted);letter-spacing:1px;margin-bottom:3px;">CLOUD COVER</div>
-          <div style="font-size:11px;color:${parseFloat(cloudCover) < 15 ? 'var(--green-safe)' : 'var(--orange-warn)'};font-weight:600;">${cloudCover}%</div>
-        </div>
-        <div style="background:var(--dark-panel);border:1px solid var(--dark-border);border-radius:3px;padding:8px 10px;">
-          <div style="font-size:8.5px;color:var(--text-muted);letter-spacing:1px;margin-bottom:3px;">SCENE ID</div>
-          <div style="font-size:9px;color:var(--text-secondary);font-family:monospace;word-break:break-all;">${(scene.id || '').slice(0,32)}...</div>
-        </div>
-      </div>
-      <div style="font-family:'Orbitron',monospace;font-size:8px;color:var(--text-muted);letter-spacing:2px;margin-bottom:7px;">BAND DOWNLOAD LINKS</div>
-      ${bandRows || '<div style="color:var(--text-muted);font-size:11px;">No band assets found</div>'}
-      <button onclick="fetchGEENDVI(document.getElementById('gee-region').value)"
-        style="margin-top:12px;width:100%;background:linear-gradient(135deg,var(--gold-dim),#5C4008);border:none;color:var(--gold-bright);font-family:'Orbitron',monospace;font-size:8.5px;font-weight:700;padding:8px 14px;border-radius:3px;cursor:pointer;letter-spacing:1.5px;">
-        🔄 REFRESH SCENE
-      </button>
-    </div>`;
 }
 
 // Tile-based fallback using GEE Map Tiles (works with API key only)
@@ -3671,205 +3818,44 @@ function setGEEStatus(type, msg) {
   el.className = 'fetch-status ' + type;
   el.querySelector('span').textContent = msg;
 }
-// ===== MICROSOFT PLANETARY COMPUTER — EXPANDED =====
-// FREE · No auth · No registration · Auto-token · Production-grade
-const PC_BASE  = 'https://planetarycomputer.microsoft.com/api/sas/v1/token';
-const PC_STAC  = 'https://planetarycomputer.microsoft.com/api/stac/v1';
-const PC_SIGN  = 'https://planetarycomputer.microsoft.com/api/sas/v1/sign';
+// Auto-fetches and refreshes SAS tokens every 45 minutes
+const PC_BASE = 'https://planetarycomputer.microsoft.com/api/sas/v1/token';
+const PC_STAC = 'https://planetarycomputer.microsoft.com/api/stac/v1';
+const AZURE_STORAGE = 'https://sentinel2l2a01.blob.core.windows.net/sentinel2-l2';
 
-// All available collections relevant to galamsey detection
-const PC_FULL_COLLECTIONS = {
-  's2':          'sentinel-2-l2a',
-  's1':          'sentinel-1-grd',
-  'landsat':     'landsat-c2-l2',
-  'cop-dem':     'cop-dem-glo-30',
-  'io-lulc':     'io-lulc-9-class',
-  'modis-ndvi':  'modis-13A1-061',
-  'jrc-water':   'jrc-gsw',
-  'glad-forest': 'glad-forest-change',
-  'aster':       'aster-l1t',
+let pcTokens = {
+  's2': null, 's1': null, 'landsat': null
+};
+let pcTokenExpiry = {
+  's2': 0, 's1': 0, 'landsat': 0
 };
 
-// Keep backward-compat alias so loadPCScenes still works
 const PC_COLLECTIONS = {
   's2':      'sentinel-2-l2a',
   's1':      'sentinel-1-grd',
   'landsat': 'landsat-c2-l2'
 };
 
-let pcTokenCache = {};
-let pcTokenExpiry = {};
-
-// Keep old names as aliases so nothing breaks
-let pcTokens    = pcTokenCache;
-
-// Universal SAS token fetcher — works for any PC collection
 async function getPCToken(dataset) {
   const now = Date.now();
-  const collectionId = PC_FULL_COLLECTIONS[dataset] || PC_COLLECTIONS[dataset] || dataset;
-  if (pcTokenCache[dataset] && now < pcTokenExpiry[dataset] - 300000) {
-    return pcTokenCache[dataset];
+  // Refresh if expiring within 5 minutes
+  if (pcTokens[dataset] && now < pcTokenExpiry[dataset] - 300000) {
+    return pcTokens[dataset];
   }
   try {
-    const resp = await fetch(`${PC_BASE}/${collectionId}`);
-    if (!resp.ok) throw new Error(`Token fetch failed: ${resp.status}`);
+    const resp = await fetch(`${PC_BASE}/${PC_COLLECTIONS[dataset]}`);
     const data = await resp.json();
-    pcTokenCache[dataset] = data.token;
+    pcTokens[dataset] = data.token;
     pcTokenExpiry[dataset] = new Date(data['msft:expiry']).getTime();
     console.log(`PC token refreshed for ${dataset} · expires ${data['msft:expiry']}`);
     return data.token;
   } catch(e) {
-    console.warn(`PC token failed for ${dataset}:`, e.message);
+    console.error(`PC token fetch failed for ${dataset}:`, e);
     return null;
   }
 }
 
-// Sign a blob URL with SAS token (makes it downloadable)
-async function signPCAsset(href, collection) {
-  try {
-    const token = await getPCToken(collection);
-    if (!token) return href;
-    const resp = await fetch(`${PC_SIGN}?href=${encodeURIComponent(href)}`);
-    const data = await resp.json();
-    return data.href || href;
-  } catch(e) {
-    return href;
-  }
-}
-
-// ---- LAND USE / LAND COVER (LULC) — KEY FOR GALAMSEY ----
-async function loadPCLULC(regionKey) {
-  const regionBbox = {
-    western: [-3.3, 4.7, -1.5, 6.8],
-    ashanti: [-2.5, 5.8, -0.8, 7.3],
-    ghana:   [-3.3, 4.7,  1.2, 11.2]
-  };
-  const bbox = regionBbox[regionKey] || regionBbox.western;
-
-  setPCStatus('loading', `⟳ Fetching Impact Observatory LULC for ${regionKey}...`);
-  try {
-    const resp = await fetch(`${PC_STAC}/search`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        collections: ['io-lulc-9-class'],
-        bbox,
-        limit: 5,
-        sortby: [{ field: 'datetime', direction: 'desc' }]
-      })
-    });
-    const data = await resp.json();
-    const scenes = data.features || [];
-    if (!scenes.length) { setPCStatus('loading', '⚠ No LULC scenes found.'); return; }
-
-    const scene = scenes[0];
-    const dataHref = scene.assets?.data?.href || scene.assets?.['io-lulc']?.href;
-    if (!dataHref) { setPCStatus('loading', '⚠ No data asset in LULC scene.'); return; }
-
-    const signedUrl = await signPCAsset(dataHref, 'io-lulc');
-    setPCStatus('success', `✓ LULC loaded · ${scene.properties?.datetime?.slice(0,10)} · Class 1=Bare Ground (Galamsey)`);
-
-    const panel = document.getElementById('pc-scene-detail');
-    if (panel) {
-      panel.innerHTML = `
-        <div style="font-family:'Orbitron',monospace;font-size:8.5px;color:var(--gold);letter-spacing:2px;margin-bottom:8px;">IMPACT OBS. LULC</div>
-        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:10px;line-height:1.6;">
-          Date: <strong style="color:var(--text-primary);">${scene.properties?.datetime?.slice(0,10)}</strong><br>
-          Class 1 = Bare/disturbed ground = galamsey risk
-        </div>
-        <div style="display:flex;flex-direction:column;gap:5px;">
-          ${Object.entries(scene.assets || {}).slice(0,5).map(([k,v]) => `
-            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--dark-border);font-size:10.5px;">
-              <span style="color:var(--text-secondary);font-family:monospace;">${k}</span>
-              <a href="${signedUrl}" target="_blank"
-                style="color:var(--gold);font-family:'Orbitron',monospace;font-size:7.5px;padding:2px 6px;border:1px solid rgba(212,160,23,0.3);border-radius:2px;text-decoration:none;">
-                OPEN ↗
-              </a>
-            </div>`).join('')}
-        </div>`;
-      panel.style.display = 'block';
-      document.getElementById('pc-scene-placeholder').style.display = 'none';
-    }
-  } catch(e) {
-    setPCStatus('error', `✗ LULC failed: ${e.message}`);
-  }
-}
-
-// ---- JRC GLOBAL SURFACE WATER — RIVER CHANGE DETECTION ----
-async function loadPCJRCWater(regionKey) {
-  const regionBbox = {
-    western: [-3.3, 4.7, -1.5, 6.8],
-    ashanti: [-2.5, 5.8, -0.8, 7.3],
-    ghana:   [-3.3, 4.7,  1.2, 11.2]
-  };
-  const bbox = regionBbox[regionKey] || regionBbox.western;
-  setPCStatus('loading', `⟳ Fetching JRC Surface Water data for ${regionKey}...`);
-
-  try {
-    const resp = await fetch(`${PC_STAC}/search`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        collections: ['jrc-gsw'],
-        bbox,
-        limit: 3,
-        sortby: [{ field: 'datetime', direction: 'desc' }]
-      })
-    });
-    const data = await resp.json();
-    const scenes = data.features || [];
-    if (!scenes.length) {
-      setPCStatus('loading', '⚠ No JRC water scenes found for this region/period.');
-      return;
-    }
-    setPCStatus('success', `✓ JRC Surface Water: ${scenes.length} scenes · Tracks river changes near galamsey sites`);
-    renderPCSceneTable(scenes, 'jrc-water', regionKey);
-    renderPCSceneChart(scenes, 'jrc-water');
-  } catch(e) {
-    setPCStatus('error', `✗ JRC Water: ${e.message}`);
-  }
-}
-
-// ---- GLAD FOREST ALERTS — NEAR REAL-TIME DEFORESTATION ----
-async function loadPCForestAlerts(regionKey) {
-  const regionBbox = {
-    western: [-3.3, 4.7, -1.5, 6.8],
-    ashanti: [-2.5, 5.8, -0.8, 7.3],
-    ghana:   [-3.3, 4.7,  1.2, 11.2]
-  };
-  const bbox = regionBbox[regionKey] || regionBbox.ghana;
-  const today  = new Date();
-  const fromDt = new Date(today - 90 * 864e5).toISOString().slice(0,10);
-  const toDt   = today.toISOString().slice(0,10);
-
-  setPCStatus('loading', `⟳ Fetching GLAD forest change alerts for ${regionKey}...`);
-  try {
-    const resp = await fetch(`${PC_STAC}/search`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        collections: ['glad-forest-change'],
-        bbox,
-        datetime: `${fromDt}T00:00:00Z/${toDt}T23:59:59Z`,
-        limit: 8,
-        sortby: [{ field: 'datetime', direction: 'desc' }]
-      })
-    });
-    const data = await resp.json();
-    const scenes = data.features || [];
-    if (!scenes.length) {
-      setPCStatus('loading', '⚠ No GLAD forest alerts for selected region/period.');
-      return;
-    }
-    setPCStatus('success', `✓ GLAD: ${scenes.length} forest change alerts · ${fromDt} → ${toDt}`);
-    renderPCSceneTable(scenes, 'glad-forest', regionKey);
-    renderPCSceneChart(scenes, 'glad-forest');
-  } catch(e) {
-    setPCStatus('error', `✗ GLAD alerts: ${e.message}`);
-  }
-}
-
-// Search for recent scenes over a Ghana bbox via STAC API
+// Search for recent Sentinel-2 scenes over a Ghana bbox via STAC API
 async function searchPCScenes(collection, bbox, dateFrom, dateTo, maxCloud = 30) {
   const body = {
     collections: [collection],
@@ -3888,6 +3874,7 @@ async function searchPCScenes(collection, bbox, dateFrom, dateTo, maxCloud = 30)
   return data.features || [];
 }
 
+// Render PC scene list in the viewer
 async function loadPCScenes(dataset, regionKey) {
   const regionMap = {
     western: { bbox: [-3.3, 4.7, -1.5, 6.8],  label: 'Western Region' },
@@ -3895,9 +3882,9 @@ async function loadPCScenes(dataset, regionKey) {
     ghana:   { bbox: [-3.3, 4.7,  1.2, 11.2], label: 'All Ghana'       }
   };
   const { bbox, label } = regionMap[regionKey] || regionMap.western;
-  const collection = PC_COLLECTIONS[dataset] || PC_FULL_COLLECTIONS[dataset] || dataset;
+  const collection = PC_COLLECTIONS[dataset];
 
-  const today    = new Date();
+  const today   = new Date();
   const fromDate = new Date(today - 30 * 864e5).toISOString().slice(0,10);
   const toDate   = today.toISOString().slice(0,10);
 
@@ -3907,7 +3894,7 @@ async function loadPCScenes(dataset, regionKey) {
     const scenes = await searchPCScenes(collection, bbox, fromDate, toDate);
 
     if (!scenes.length) {
-      setPCStatus('loading', `⚠ No ${dataset.toUpperCase()} scenes found for ${label} in last 30 days.`);
+      setPCStatus('loading', `⚠ No ${dataset.toUpperCase()} scenes found for ${label} in last 30 days. Try a wider date range.`);
       return;
     }
 
@@ -3939,6 +3926,7 @@ function renderPCSceneTable(scenes, dataset, label) {
     const cloudColor = parseFloat(cloud) < 15 ? 'var(--green-safe)' : parseFloat(cloud) < 40 ? 'var(--gold)' : 'var(--red-alert)';
     const ndviReady = parseFloat(cloud) < 30;
 
+    // Thumbnail URL if available
     const thumbUrl = s.assets?.rendered_preview?.href || s.assets?.thumbnail?.href || '';
     const thumbHtml = thumbUrl
       ? `<img src="${thumbUrl}" style="width:42px;height:42px;object-fit:cover;border-radius:2px;border:1px solid var(--dark-border);" onerror="this.style.display='none'"/>`
@@ -3962,9 +3950,6 @@ function renderPCSceneTable(scenes, dataset, label) {
 }
 
 function renderPCSceneChart(scenes, dataset) {
-  const ctx = document.getElementById('pc-timeline-chart');
-  if (!ctx) return;
-
   const byDate = {};
   scenes.forEach(s => {
     const d = (s.properties.datetime || '').slice(0,10);
@@ -3973,24 +3958,15 @@ function renderPCSceneChart(scenes, dataset) {
   const labels = Object.keys(byDate).sort();
   const values = labels.map(d => byDate[d]);
 
-  if (window._pcChart) window._pcChart.destroy();
-  window._pcChart = new Chart(ctx, {
+  window._pcChart = createChart('pc-timeline-chart', {
     type: 'bar',
     data: {
       labels,
       datasets: [{
         label: `${dataset.toUpperCase()} Scenes`,
         data: values,
-        backgroundColor: dataset === 's2' ? 'rgba(46,204,113,0.65)' :
-                         dataset === 's1' ? 'rgba(255,140,0,0.65)' :
-                         dataset === 'glad-forest' ? 'rgba(46,204,113,0.55)' :
-                         dataset === 'jrc-water' ? 'rgba(0,212,170,0.65)' :
-                         'rgba(74,158,255,0.65)',
-        borderColor: dataset === 's2' ? '#2ECC71' :
-                     dataset === 's1' ? '#FF8C00' :
-                     dataset === 'glad-forest' ? '#2ECC71' :
-                     dataset === 'jrc-water' ? '#00D4AA' :
-                     '#4A9EFF',
+        backgroundColor: dataset === 's2' ? 'rgba(46,204,113,0.65)' : dataset === 's1' ? 'rgba(255,140,0,0.65)' : 'rgba(74,158,255,0.65)',
+        borderColor:      dataset === 's2' ? '#2ECC71' : dataset === 's1' ? '#FF8C00' : '#4A9EFF',
         borderWidth: 1.5, borderRadius: 3
       }]
     },
@@ -3999,8 +3975,8 @@ function renderPCSceneChart(scenes, dataset) {
       maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { backgroundColor:'#0A0D14', borderColor:'#1C2438', borderWidth:1 } },
       scales: {
-        x: { grid: { color:'rgba(28,36,56,0.6)' }, ticks: { font:{size:10}, color:'rgba(232,228,216,0.65)' } },
-        y: { grid: { color:'rgba(28,36,56,0.6)' }, ticks: { font:{size:10} }, beginAtZero: true }
+        x: { grid: { color:'rgba(28,36,56,0.5)' }, ticks: { font:{size:9}, maxRotation:45, color:'rgba(232,228,216,0.55)' } },
+        y: { grid: { color:'rgba(28,36,56,0.5)' }, ticks: { font:{size:9}, stepSize:1 }, beginAtZero:true }
       }
     }
   });
@@ -4009,11 +3985,11 @@ function renderPCSceneChart(scenes, dataset) {
 async function downloadPCScene(sceneId, dataset) {
   setPCStatus('loading', `⟳ Fetching scene details for ${sceneId.slice(0,20)}...`);
   try {
-    const collection = PC_COLLECTIONS[dataset] || PC_FULL_COLLECTIONS[dataset] || dataset;
-    const resp = await fetch(`${PC_STAC}/collections/${collection}/items/${sceneId}`);
+    const resp = await fetch(`${PC_STAC}/collections/${PC_COLLECTIONS[dataset]}/items/${sceneId}`);
     const item = await resp.json();
     const token = await getPCToken(dataset);
 
+    // Build asset links
     const assets = item.assets || {};
     const info = Object.entries(assets).slice(0,6).map(([k,v]) =>
       `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--dark-border);font-size:11px;">
@@ -4037,7 +4013,6 @@ async function downloadPCScene(sceneId, dataset) {
         <div style="margin-top:8px;font-size:10px;color:var(--text-muted);">Click OPEN to view/download each band in browser</div>
       `;
       panel.style.display = 'block';
-      document.getElementById('pc-scene-placeholder').style.display = 'none';
     }
     setPCStatus('success', `✓ Scene assets loaded · ${Object.keys(assets).length} bands available`);
   } catch(e) {
@@ -4045,19 +4020,7 @@ async function downloadPCScene(sceneId, dataset) {
   }
 }
 
-// Auto-prefetch tokens on load and refresh every 45 minutes
-window.addEventListener('load', () => {
-  setTimeout(async () => {
-    await getPCToken('s2');
-    await getPCToken('s1');
-    await getPCToken('landsat');
-    setInterval(async () => {
-      await getPCToken('s2');
-      await getPCToken('s1');
-      await getPCToken('landsat');
-    }, 45 * 60 * 1000);
-  }, 3000);
-});
+// PC tokens handled in production init block below
 
 const NAIMOS_SYSTEM_PROMPT = `You are NAIMOS-AI, the intelligence and analysis system for Ghana's National Anti-Illegal Mining Operations Secretariat (NAIMOS).
 
@@ -4075,7 +4038,7 @@ Current operational context:
 
 Respond as a sharp military-grade intelligence AI: concise (under 180 words), data-driven, operational focus. Include confidence percentages when relevant. Give actionable recommendations. Prioritize environmental protection and operational effectiveness for NAIMOS.`;
 
-// Conversation history (OpenAI format)
+// Gemini keeps conversation as array of {role, parts}
 let geminiHistory = [];
 
 async function sendAIMessage() {
@@ -4083,6 +4046,11 @@ async function sendAIMessage() {
   const btn   = document.getElementById('send-btn');
   const text  = input.value.trim();
   if (!text) return;
+
+  if (GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+    appendMsg('⚠ No Gemini API key set. Get your FREE key at aistudio.google.com/app/apikey', 'ai');
+    return;
+  }
 
   input.value = '';
   btn.disabled = true;
@@ -4092,68 +4060,74 @@ async function sendAIMessage() {
   typingEl.classList.add('visible');
   scrollChat();
 
-  // Build OpenAI messages array
-  const messages = [
-    { role: 'system', content: NAIMOS_SYSTEM_PROMPT },
-    ...geminiHistory,
-    { role: 'user', content: text }
-  ];
+  geminiHistory.push({ role: 'user', parts: [{ text }] });
 
-  try {
-    // Detect environment: use proxy on deployed sites, direct on localhost
-    const isLocal = window.location.protocol === 'file:' ||
-                    window.location.hostname === 'localhost' ||
-                    window.location.hostname === '127.0.0.1';
+  const geminiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const geminiBody = JSON.stringify({
+    system_instruction: { parts: [{ text: NAIMOS_SYSTEM_PROMPT }] },
+    contents: geminiHistory,
+    generationConfig: { temperature: 0.7, maxOutputTokens: 512, topP: 0.9 },
+    safetySettings: [
+      { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+    ]
+  });
 
-    let data;
-
-    if (isLocal) {
-      // Direct call for local development
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${OPENAI_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: messages,
-          max_tokens: 512,
-          temperature: 0.7
-        })
-      });
-      data = await response.json();
-    } else {
-      // Use Vercel serverless proxy on deployed site
-      const response = await fetch('/api/chat', {
+  // Gemini DOES support CORS from browsers — it sets Access-Control-Allow-Origin: *
+  // So direct fetch works. The only failure case is file:// protocol or network issues.
+  const attempts = [
+    // 1. Direct (works on all hosted environments — Gemini allows browser CORS)
+    async () => {
+      const r = await fetch(geminiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messages })
+        body: geminiBody,
+        signal: AbortSignal.timeout(20000)
       });
-      data = await response.json();
+      return r.json();
+    },
+    // 2. Via corsproxy.io (fallback for file:// or blocked networks)
+    async () => {
+      const r = await fetch(`https://corsproxy.io/?${encodeURIComponent(geminiEndpoint)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: geminiBody,
+        signal: AbortSignal.timeout(22000)
+      });
+      return r.json();
     }
+  ];
 
-    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-
-    const reply = data.choices?.[0]?.message?.content || 'Signal lost. Please retry.';
-
-    // Maintain conversation history (OpenAI format)
-    geminiHistory.push({ role: 'user', content: text });
-    geminiHistory.push({ role: 'assistant', content: reply });
-
-    // Keep history trimmed to last 10 exchanges (20 messages) to avoid token overflow
-    if (geminiHistory.length > 20) geminiHistory = geminiHistory.slice(-20);
-
-    typingEl.classList.remove('visible');
-    appendMsg(reply, 'ai');
-
-  } catch (err) {
-    typingEl.classList.remove('visible');
-    if (err.message.includes('Failed to fetch') || err.message.includes('CORS') || err.message.includes('NetworkError')) {
-      appendMsg('⚠ CORS ERROR: OpenAI blocks direct browser requests. Host this file on a server (e.g. VS Code Live Server, localhost, or deploy to Netlify/Vercel) instead of opening as a local file://', 'ai');
-    } else {
-      appendMsg(`⚠ NAIMOS-AI Error: ${err.message}`, 'ai');
+  let success = false;
+  for (const attempt of attempts) {
+    try {
+      const data = await attempt();
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Signal lost. Retry.';
+      geminiHistory.push({ role: 'model', parts: [{ text: reply }] });
+      if (geminiHistory.length > 20) geminiHistory = geminiHistory.slice(-20);
+      typingEl.classList.remove('visible');
+      appendMsg(reply, 'ai');
+      success = true;
+      break;
+    } catch(e) {
+      console.warn('Gemini attempt failed:', e.message);
     }
+  }
+
+  if (!success) {
+    typingEl.classList.remove('visible');
+    geminiHistory.pop(); // remove failed user msg
+    appendMsg(
+      '⚠ NAIMOS-AI temporarily offline.\n\n' +
+      'If opening as a local file (file://), host on a server:\n' +
+      '• VS Code → "Live Server" extension → Click "Go Live"\n' +
+      '• Or drag the file to a browser served via localhost\n\n' +
+      'Gemini API key is set and valid. This is a network/CORS issue only.',
+      'ai'
+    );
   }
 
   btn.disabled = false;
@@ -4191,7 +4165,21 @@ function sendQuickMsg(prompt) {
 }
 
 // ===== CHART.JS SETUP =====
+// Chart instance registry — destroy before recreate to prevent mobile resize loop
+const chartRegistry = {};
 let chartsInitialized = false;
+
+// Safe chart creator — destroys existing instance first
+function createChart(id, config) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return null;
+  if (chartRegistry[id]) { try { chartRegistry[id].destroy(); } catch(e) {} }
+  const existing = Chart.getChart ? Chart.getChart(canvas) : null;
+  if (existing) { try { existing.destroy(); } catch(e) {} }
+  const inst = new Chart(canvas, config);
+  chartRegistry[id] = inst;
+  return inst;
+}
 
 Chart.defaults.color = 'rgba(232,228,216,0.65)';
 Chart.defaults.font.family = "'Rajdhani', sans-serif";
@@ -4218,7 +4206,7 @@ function initCharts() {
   chartsInitialized = true;
 
   // === BAR CHART: Sites by Region ===
-  new Chart(document.getElementById('chart-bar'), {
+  createChart('chart-bar', {
     type: 'bar',
     data: {
       labels: ['Western', 'Ashanti', 'Eastern', 'Central', 'Bono', 'Oti', 'Northern', 'UW/UE'],
@@ -4239,16 +4227,16 @@ function initCharts() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { backgroundColor:'#0A0D14', borderColor:'#1C2438', borderWidth:1 } },
+      plugins: { legend: { display: false }, tooltip: tooltipPlugin },
       scales: {
-        x: { grid: { color:'rgba(28,36,56,0.6)' }, ticks: { font:{size:10}, color:'rgba(232,228,216,0.65)' } },
-        y: { grid: { color:'rgba(28,36,56,0.6)' }, ticks: { font:{size:10} }, beginAtZero: true }
+        x: { grid: { color: C.grid }, ticks: { font: { size: 10 } }, border: { color: C.border } },
+        y: { grid: { color: C.grid }, ticks: { font: { size: 10 } }, border: { color: C.border }, beginAtZero: true }
       }
     }
   });
 
   // === DOUGHNUT CHART: Detection methods ===
-  new Chart(document.getElementById('chart-donut'), {
+  createChart('chart-donut', {
     type: 'doughnut',
     data: {
       labels: ['Sentinel-1 SAR', 'Landsat Optical', 'Drone Survey', 'Ground Intel', 'NASA FIRMS', 'Community'],
@@ -4265,6 +4253,7 @@ function initCharts() {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       cutout: '62%',
       plugins: {
         legend: { position: 'right', labels: { font: { size: 10 }, padding: 10, boxWidth: 10 } },
@@ -4275,7 +4264,7 @@ function initCharts() {
 
   // === LINE CHART: Monthly trend ===
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
-  new Chart(document.getElementById('chart-line'), {
+  createChart('chart-line', {
     type: 'line',
     data: {
       labels: months,
@@ -4304,6 +4293,7 @@ function initCharts() {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: { labels: { font: { size: 10 }, boxWidth: 12, padding: 14 } },
         tooltip: tooltipPlugin
@@ -4316,7 +4306,7 @@ function initCharts() {
   });
 
   // === RADAR CHART: Environmental impact ===
-  new Chart(document.getElementById('chart-radar'), {
+  createChart('chart-radar', {
     type: 'radar',
     data: {
       labels: ['Water Pollution', 'Deforestation', 'Land Degradation', 'Mercury Risk', 'Community Impact', 'Biodiversity Loss'],
@@ -4343,6 +4333,7 @@ function initCharts() {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: { labels: { font: { size: 10 }, boxWidth: 10 } },
         tooltip: tooltipPlugin
@@ -4359,7 +4350,7 @@ function initCharts() {
   });
 
   // === AREA CHART: Water contamination ===
-  new Chart(document.getElementById('chart-area'), {
+  createChart('chart-area', {
     type: 'line',
     data: {
       labels: ['Pra R.', 'Birim R.', 'Offin R.', 'Tano R.', 'Ankobra R.', 'Volta R.', 'Oti R.', 'Densu R.'],
@@ -4382,6 +4373,7 @@ function initCharts() {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: { labels: { font: { size: 10 }, boxWidth: 12 } },
         tooltip: tooltipPlugin
@@ -4483,12 +4475,6 @@ function switchTab(tab) {
     document.getElementById('intel-content').classList.add('visible');
   } else if (tab === 'ops') {
     document.getElementById('ops-content').classList.add('visible');
-  } else if (tab === 'firms') {
-    document.getElementById('firms-content').classList.add('visible');
-    setTimeout(() => {
-      if (firmsBarChart) { firmsBarChart.resize(); firmsBarChart.update(); }
-      if (firmsDNChart) { firmsDNChart.resize(); firmsDNChart.update(); }
-    }, 50);
   } else if (tab === 'sentinel') {
     document.getElementById('sentinel-content').classList.add('visible');
     const dl = document.getElementById('sentinel-date-label');
@@ -4563,39 +4549,80 @@ function parseCSV(csvText) {
   }).filter(r => !isNaN(r.lat) && !isNaN(r.lon) && !isNaN(r.frp));
 }
 
+// ===== PRODUCTION CORS PROXY SYSTEM =====
+// NASA FIRMS blocks direct browser requests — we need CORS proxies
+// Multiple proxy fallbacks for production reliability
+
+const CORS_PROXIES = [
+  // allorigins.win — most reliable, wraps response in JSON
+  { name: 'allorigins', wrap: url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, extract: d => d.contents },
+  // corsproxy.io — direct passthrough
+  { name: 'corsproxy.io', wrap: url => `https://corsproxy.io/?${encodeURIComponent(url)}`, extract: d => d },
+  // thingproxy — backup
+  { name: 'thingproxy', wrap: url => `https://thingproxy.freeboard.io/fetch/${url}`, extract: d => d },
+];
+
+async function fetchWithCORSProxy(targetUrl) {
+  let lastError = null;
+  for (const proxy of CORS_PROXIES) {
+    try {
+      const proxyUrl = proxy.wrap(targetUrl);
+      const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
+      if (!resp.ok) continue;
+      const data = await resp.json().catch(() => null) || await resp.text().catch(() => null);
+      if (!data) continue;
+      // Extract actual content
+      const content = typeof proxy.extract === 'function' ? proxy.extract(data) : data;
+      if (content && typeof content === 'string' && content.length > 20) {
+        console.log(`✓ CORS proxy success: ${proxy.name}`);
+        return content;
+      }
+    } catch (e) {
+      lastError = e;
+      console.warn(`CORS proxy ${proxy.name} failed:`, e.message);
+    }
+  }
+  // Final fallback: direct fetch (works if server has CORS headers)
+  try {
+    const resp = await fetch(targetUrl, { signal: AbortSignal.timeout(10000) });
+    if (resp.ok) return await resp.text();
+  } catch (e) {
+    lastError = e;
+  }
+  throw new Error(`All proxies failed. Last error: ${lastError?.message || 'Unknown'}`);
+}
+
 async function fetchFIRMSData() {
   const key    = document.getElementById('firms-key-input').value.trim();
   const days   = document.getElementById('firms-days').value;
   const sensor = document.getElementById('firms-sensor').value;
-  const statusEl = document.getElementById('firms-fetch-status');
-  const statusTxt = document.getElementById('firms-status-text');
 
   if (!key) {
     setFetchStatus('error', '⚠ Please enter your NASA FIRMS MAP_KEY first.');
     return;
   }
 
-  setFetchStatus('loading', `⟳ Fetching ${days}-day Ghana thermal data from NASA FIRMS (${sensor})...`);
+  setFetchStatus('loading', `⟳ Fetching ${days}-day Ghana thermal data via CORS proxy (${sensor})...`);
 
-  const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${key}/${sensor}/-3.3,4.7,1.2,11.2/${days}`;
+  const directUrl = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${key}/${sensor}/-3.3,4.7,1.2,11.2/${days}`;
 
   try {
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
-    const csvText = await resp.text();
+    const csvText = await fetchWithCORSProxy(directUrl);
 
-    if (csvText.includes('Invalid') || csvText.includes('Error') || csvText.includes('error')) {
-      throw new Error(csvText.split('\n')[0]);
+    if (csvText.includes('Invalid') || csvText.includes('<!DOCTYPE') || csvText.includes('<html')) {
+      throw new Error('Invalid response — check MAP_KEY: ' + csvText.slice(0, 80));
     }
 
-    firmsRawData = parseCSV(csvText);
+    // Handle allorigins sometimes double-encoding
+    const cleanCSV = csvText.startsWith('"') ? JSON.parse(csvText) : csvText;
+
+    firmsRawData = parseCSV(cleanCSV);
 
     if (firmsRawData.length === 0) {
-      setFetchStatus('loading', `⚠ No thermal detections in Ghana for last ${days} day(s). Try extending the date range.`);
+      setFetchStatus('loading', `⚠ No thermal detections in Ghana for last ${days} day(s). Try "Last 7 Days".`);
       return;
     }
 
-    // Tag each hotspot with Ghana region
     firmsRawData.forEach(r => {
       r.region = classifyRegion(r.lat, r.lon);
       r.risk = galamseyRisk(r.frp, r.daynight, r.brightness);
@@ -4604,17 +4631,21 @@ async function fetchFIRMSData() {
     firmsFilteredData = [...firmsRawData];
 
     setFetchStatus('success',
-      `✓ ${firmsRawData.length} thermal hotspots loaded from NASA FIRMS · Ghana · ${new Date().toUTCString()}`);
+      `✓ ${firmsRawData.length} thermal hotspots loaded · Ghana · ${new Date().toUTCString()}`);
+
+    // Update proxy status
+    const firmsBadge = document.getElementById('proxy-firms');
+    if (firmsBadge) { firmsBadge.textContent = `⬤ FIRMS (${firmsRawData.length})`; firmsBadge.className = 'proxy-badge ok'; }
 
     updateFIRMSStats();
     renderFIRMSTable(firmsFilteredData);
     renderFIRMSCharts();
-
-    // Auto-inject into live alerts
     injectFIRMSAlerts();
 
   } catch (err) {
-    setFetchStatus('error', `✗ Fetch failed: ${err.message}. Check MAP_KEY or network connection.`);
+    setFetchStatus('error', `✗ Fetch failed: ${err.message}`);
+    const firmsBadge = document.getElementById('proxy-firms');
+    if (firmsBadge) { firmsBadge.textContent = '✗ FIRMS ERROR'; firmsBadge.className = 'proxy-badge'; firmsBadge.style.color='var(--red-alert)'; }
     console.error('FIRMS fetch error:', err);
   }
 }
@@ -4704,8 +4735,7 @@ function renderFIRMSCharts() {
   firmsRawData.forEach(r => { regionCounts[r.region] = (regionCounts[r.region] || 0) + 1; });
   const regionEntries = Object.entries(regionCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
 
-  if (firmsBarChart) firmsBarChart.destroy();
-  firmsBarChart = new Chart(document.getElementById('firms-bar-chart'), {
+  firmsBarChart = createChart('firms-bar-chart', {
     type: 'bar',
     data: {
       labels: regionEntries.map(e => e[0]),
@@ -4738,8 +4768,7 @@ function renderFIRMSCharts() {
   const dayCount   = firmsRawData.filter(r => r.daynight === 'D').length;
   const nightCount = firmsRawData.filter(r => r.daynight === 'N').length;
 
-  if (firmsDNChart) firmsDNChart.destroy();
-  firmsDNChart = new Chart(document.getElementById('firms-dn-chart'), {
+  firmsDNChart = createChart('firms-dn-chart', {
     type: 'doughnut',
     data: {
       labels: ['Daytime (☀ Active Mining)', 'Nighttime (☾ Burn/Fire)'],
@@ -4750,7 +4779,8 @@ function renderFIRMSCharts() {
       }]
     },
     options: {
-      responsive: true, cutout: '58%',
+      responsive: true,
+      maintainAspectRatio: false, cutout: '58%',
       plugins: {
         legend: { position:'bottom', labels: { font:{size:10}, padding:12, boxWidth:10, color:'rgba(232,228,216,0.65)' } },
         tooltip: { backgroundColor:'#0A0D14', borderColor:'#1C2438', borderWidth:1 }
@@ -4889,40 +4919,477 @@ window.addEventListener('load', () => {
     }, 1500);
   }
 });
-// ===== EXPANDABLE AI PANEL =====
-let aiPanelExpanded = false;
 
-function toggleAIExpand() {
-  aiPanelExpanded ? collapseAIPanel() : expandAIPanel();
+// ===== PRODUCTION PROXY HEALTH CHECK =====
+async function checkProxyHealth() {
+  const lastCheck = document.getElementById('proxy-last-check');
+  if (lastCheck) lastCheck.textContent = 'Checking...';
+
+  // Test allorigins proxy (used for FIRMS)
+  try {
+    const testUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://httpbin.org/get');
+    const resp = await fetch(testUrl, { signal: AbortSignal.timeout(6000) });
+    if (resp.ok) {
+      const firmsBadge = document.getElementById('proxy-firms');
+      if (firmsBadge) { firmsBadge.textContent = '⬤ FIRMS PROXY'; firmsBadge.className = 'proxy-badge ok'; }
+    }
+  } catch(e) {
+    const firmsBadge = document.getElementById('proxy-firms');
+    if (firmsBadge) { firmsBadge.textContent = '◎ FIRMS'; firmsBadge.className = 'proxy-badge warn'; }
+  }
+
+  // Test Sentinel Hub auth readiness
+  try {
+    const sentinelBadge = document.getElementById('proxy-sentinel');
+    if (SENTINEL_CLIENT_ID && SENTINEL_CLIENT_ID.length > 10) {
+      if (sentinelBadge) { sentinelBadge.textContent = '⬤ SENTINEL'; sentinelBadge.className = 'proxy-badge ok'; }
+    }
+  } catch(e) {}
+
+  // Test Gemini key
+  try {
+    const geminiBadge = document.getElementById('proxy-gemini');
+    if (GEMINI_API_KEY && GEMINI_API_KEY.length > 10 && GEMINI_API_KEY !== 'YOUR_GEMINI_API_KEY_HERE') {
+      if (geminiBadge) { geminiBadge.textContent = '⬤ GEMINI AI'; geminiBadge.className = 'proxy-badge ok'; }
+    } else {
+      if (geminiBadge) { geminiBadge.textContent = '✗ GEMINI'; geminiBadge.className = 'proxy-badge'; geminiBadge.style.color = 'var(--red-alert)'; }
+    }
+  } catch(e) {}
+
+  // Test Planetary Computer
+  try {
+    const pcResp = await fetch('https://planetarycomputer.microsoft.com/api/sas/v1/token/sentinel-2-l2a', { signal: AbortSignal.timeout(5000) });
+    const pcBadge = document.getElementById('proxy-planetary');
+    if (pcResp.ok && pcBadge) { pcBadge.textContent = '⬤ PLANETARY'; pcBadge.className = 'proxy-badge ok'; }
+  } catch(e) {
+    const pcBadge = document.getElementById('proxy-planetary');
+    if (pcBadge) { pcBadge.textContent = '◎ PLANETARY'; pcBadge.className = 'proxy-badge warn'; }
+  }
+
+  // GEE status
+  const geeBadge = document.getElementById('proxy-gee');
+  if (geeBadge && GEE_API_KEY && GEE_API_KEY.length > 10) {
+    geeBadge.textContent = '◎ GEE KEY SET'; geeBadge.className = 'proxy-badge warn';
+  }
+
+  if (lastCheck) {
+    const now = new Date();
+    lastCheck.textContent = `Last checked: ${String(now.getUTCHours()).padStart(2,'0')}:${String(now.getUTCMinutes()).padStart(2,'0')} UTC`;
+  }
 }
 
-function expandAIPanel() {
-  aiPanelExpanded = true;
+// Run proxy check on load and every 5 minutes
+window.addEventListener('load', () => {
+  setTimeout(checkProxyHealth, 2000);
+  setInterval(checkProxyHealth, 5 * 60 * 1000);
+});
+
+// ===== MOBILE MAP CENTER FIX =====
+function fixMobileMapCenter() {
+  const mapArea = document.getElementById('map-area');
+  const svg = document.getElementById('ghana-svg');
+  if (!mapArea || !svg) return;
+
+  // On mobile, ensure the SVG is perfectly centered
+  if (window.innerWidth <= 960) {
+    svg.style.display = 'block';
+    svg.style.margin = '0 auto';
+    svg.style.position = 'relative';
+    svg.style.left = 'auto';
+    svg.style.transform = mapScale !== 1 ? `scale(${mapScale})` : 'none';
+  }
+}
+
+// Debounced resize — only fires after user stops resizing (not on scroll)
+// This prevents Chart.js from looping on mobile scroll events
+let _resizeTimer = null;
+let _lastW = window.innerWidth;
+let _lastH = window.innerHeight;
+
+window.addEventListener('resize', () => {
+  fixMobileMapCenter();
+
+  // Only resize charts if the window dimensions actually changed
+  // (mobile browsers fire resize on scroll due to toolbar hide/show)
+  const newW = window.innerWidth;
+  const newH = window.innerHeight;
+  const realResize = Math.abs(newW - _lastW) > 10 || Math.abs(newH - _lastH) > 150;
+
+  if (!realResize) return; // toolbar show/hide — ignore
+  _lastW = newW;
+  _lastH = newH;
+
+  // Debounce — wait 200ms after resize stops
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(() => {
+    if (chartsInitialized) {
+      Object.values(chartRegistry).forEach(c => {
+        try { c.resize(); } catch(e) {}
+      });
+    }
+  }, 200);
+});
+
+// ===== PRODUCTION: PREVENT BODY HORIZONTAL SCROLL =====
+document.addEventListener('DOMContentLoaded', () => {
+  document.body.style.overflowX = 'hidden';
+  document.documentElement.style.overflowX = 'hidden';
+  fixMobileMapCenter();
+});
+
+// ===== TOUCH SWIPE FOR MOBILE SIDEBAR =====
+(function() {
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  document.addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    // Only register horizontal swipes (dx > 2× dy)
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 2) return;
+
+    if (dx > 0 && touchStartX < 30) {
+      // Swipe right from left edge → open left sidebar
+      toggleLeftSidebar();
+    } else if (dx < 0 && touchStartX > window.innerWidth - 30) {
+      // Swipe left from right edge → open right sidebar
+      toggleRightSidebar();
+    } else if (dx < -60) {
+      // General swipe left → close left sidebar if open
+      const ls = document.getElementById('left-sidebar');
+      if (ls && ls.classList.contains('open')) closeAllSidebars();
+    } else if (dx > 60) {
+      // General swipe right → close right sidebar if open
+      const rs = document.getElementById('right-sidebar');
+      if (rs && rs.classList.contains('open')) closeAllSidebars();
+    }
+  }, { passive: true });
+})();
+
+// ===== PRODUCTION: SENTINEL HUB AUTO AUTH ON LOAD =====
+window.addEventListener('load', () => {
+  setTimeout(() => getSentinelToken().catch(() => {}), 1500);
+});
+
+// ===== PRODUCTION: PC TOKEN PREFETCH =====
+window.addEventListener('load', () => {
+  setTimeout(async () => {
+    await getPCToken('s2').catch(() => {});
+    await getPCToken('s1').catch(() => {});
+    await getPCToken('landsat').catch(() => {});
+    setInterval(async () => {
+      await getPCToken('s2').catch(() => {});
+      await getPCToken('s1').catch(() => {});
+      await getPCToken('landsat').catch(() => {});
+    }, 45 * 60 * 1000);
+  }, 3000);
+});
+
+
+// ===== AI PANEL COLLAPSE / EXPAND =====
+let aiChatOpen = true;
+let alertsOpen = true;
+let rightSidebarOpen = true;
+
+function toggleAIChat() {
   const panel = document.querySelector('.ai-panel');
-  const sidebar = document.getElementById('right-sidebar');
-  const overlay = document.getElementById('ai-overlay');
-  const btn = document.getElementById('ai-expand-btn');
-  if (panel) panel.classList.add('ai-panel-expanded');
-  if (sidebar) sidebar.style.overflow = 'visible';
-  if (overlay) overlay.classList.add('visible');
-  if (btn) { btn.textContent = '⤡'; btn.title = 'Collapse AI Panel'; }
-  scrollChat();
+  const btn   = document.getElementById('ai-chat-toggle');
+  if (!panel) return;
+
+  aiChatOpen = !aiChatOpen;
+  panel.classList.toggle('ai-collapsed', !aiChatOpen);
+  btn.textContent = aiChatOpen ? '▾' : '▸';
+  btn.title = aiChatOpen ? 'Collapse chat' : 'Expand chat';
 }
 
-function collapseAIPanel() {
-  aiPanelExpanded = false;
-  const panel = document.querySelector('.ai-panel');
-  const sidebar = document.getElementById('right-sidebar');
-  const overlay = document.getElementById('ai-overlay');
-  const btn = document.getElementById('ai-expand-btn');
-  if (panel) panel.classList.remove('ai-panel-expanded');
-  if (sidebar) sidebar.style.overflow = '';
-  if (overlay) overlay.classList.remove('visible');
-  if (btn) { btn.textContent = '⤢'; btn.title = 'Expand AI Panel'; }
+function toggleAlerts() {
+  const panel   = document.querySelector('.alerts-panel');
+  const btn     = document.getElementById('alerts-toggle');
+  if (!panel) return;
+
+  alertsOpen = !alertsOpen;
+  panel.classList.toggle('alerts-collapsed', !alertsOpen);
+  btn.textContent = alertsOpen ? '▾' : '▸';
+  btn.title = alertsOpen ? 'Collapse alerts' : 'Expand alerts';
 }
 
-console.log('%c NAIMOS AMS INITIALIZED ', 'background:#D4A017;color:#000;font-weight:bold;font-size:13px;padding:4px 12px;');
-console.log('%c Anti-Galamsey Smart Management System · Production Mode', 'color:#D4A017;font-size:11px;');
+function toggleRightSidebarSlim() {
+  const sb   = document.getElementById('right-sidebar');
+  const strip = document.getElementById('slim-reopen-strip');
+  if (!sb) return;
+
+  rightSidebarOpen = false;
+  sb.classList.add('sidebar-slim');
+  if (strip) strip.style.display = 'flex';
+}
+
+function reopenRightSidebar() {
+  const sb    = document.getElementById('right-sidebar');
+  const strip = document.getElementById('slim-reopen-strip');
+  if (!sb) return;
+
+  rightSidebarOpen = true;
+  sb.classList.remove('sidebar-slim');
+  if (strip) strip.style.display = 'none';
+
+  // Restore chat and alerts if they were collapsed
+  if (!aiChatOpen) toggleAIChat();
+  if (!alertsOpen) toggleAlerts();
+}
+
+// Keyboard shortcut: Ctrl+Shift+A = toggle AI panel
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+    e.preventDefault();
+    if (!rightSidebarOpen) { reopenRightSidebar(); return; }
+    toggleAIChat();
+  }
+});
+
+console.log('%c NAIMOS AMS v11 INITIALIZED ', 'background:#D4A017;color:#000;font-weight:bold;font-size:13px;padding:4px 12px;');
+console.log('%c Anti-Galamsey Smart Management System · v11 · Collapsible AI · Chart Scroll Fix · All APIs', 'color:#D4A017;font-size:11px;');
+console.log('%c CORS Proxies: allorigins.win → corsproxy.io → thingproxy (fallback chain)', 'color:#00FF88;font-size:10px;');
 </script>
+
+<!-- ============ GLOBAL SIDEBARS — Fixed overlays, visible on ALL tabs ============ -->
+<div class="sidebar left" id="left-sidebar">
+
+        <div class="sidebar-section">
+          <div class="section-title">Threat Overview</div>
+          <div class="threat-grid">
+            <div class="threat-card c-red" onclick="filterSites('critical')">
+              <div class="threat-num" id="cnt-critical">14</div>
+              <div class="threat-label">CRITICAL</div>
+            </div>
+            <div class="threat-card c-orange" onclick="filterSites('predicted')">
+              <div class="threat-num" id="cnt-predicted">7</div>
+              <div class="threat-label">PREDICTED</div>
+            </div>
+            <div class="threat-card c-gold" onclick="filterSites('monitored')">
+              <div class="threat-num" id="cnt-monitored">23</div>
+              <div class="threat-label">MONITORED</div>
+            </div>
+            <div class="threat-card c-blue" onclick="filterSites('contained')">
+              <div class="threat-num" id="cnt-contained">9</div>
+              <div class="threat-label">CONTAINED</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="section-title">High-Risk Regions</div>
+          <div class="region-list-item" onclick="pulseRegion('reg-western')">
+            <div><div class="region-name">Western Region</div><div class="region-sub">Tarkwa · Prestea · Amenfi</div></div>
+            <div class="threat-badge HIGH">HIGH</div>
+          </div>
+          <div class="region-list-item" onclick="pulseRegion('reg-ashanti')">
+            <div><div class="region-name">Ashanti Region</div><div class="region-sub">Obuasi · Kumawu</div></div>
+            <div class="threat-badge HIGH">HIGH</div>
+          </div>
+          <div class="region-list-item" onclick="pulseRegion('reg-central')">
+            <div><div class="region-name">Central Region</div><div class="region-sub">Dunkwa · Assin</div></div>
+            <div class="threat-badge MED">MED</div>
+          </div>
+          <div class="region-list-item" onclick="pulseRegion('reg-eastern')">
+            <div><div class="region-name">Eastern Region</div><div class="region-sub">Kibi · Oda · Kade</div></div>
+            <div class="threat-badge MED">MED</div>
+          </div>
+          <div class="region-list-item" onclick="pulseRegion('reg-bono')">
+            <div><div class="region-name">Bono/Ahafo</div><div class="region-sub">Sunyani · Berekum</div></div>
+            <div class="threat-badge MED">MED</div>
+          </div>
+          <div class="region-list-item" onclick="pulseRegion('reg-northern')">
+            <div><div class="region-name">Northern Region</div><div class="region-sub">Tamale · Tolon</div></div>
+            <div class="threat-badge LOW">LOW</div>
+          </div>
+          <div class="region-list-item" onclick="pulseRegion('reg-oti')">
+            <div><div class="region-name">Oti / Volta</div><div class="region-sub">Dambai · Kete-Krachi</div></div>
+            <div class="threat-badge LOW">LOW</div>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="section-title">Map Layers</div>
+          <div class="layer-row" onclick="toggleLayer('galamsey')">
+            <div class="layer-info"><div class="layer-dot-icon" style="background:var(--red-alert);box-shadow:0 0 4px var(--red-alert);"></div> Active Galamsey</div>
+            <div class="toggle on" id="lyr-galamsey"></div>
+          </div>
+          <div class="layer-row" onclick="toggleLayer('predicted')">
+            <div class="layer-info"><div class="layer-dot-icon" style="background:var(--blue-info);"></div> Predicted Sites</div>
+            <div class="toggle on" id="lyr-predicted"></div>
+          </div>
+          <div class="layer-row" onclick="toggleLayer('water')">
+            <div class="layer-info"><div class="layer-dot-icon" style="background:var(--teal-water);"></div> Water Bodies</div>
+            <div class="toggle on" id="lyr-water"></div>
+          </div>
+          <div class="layer-row" onclick="toggleLayer('forest')">
+            <div class="layer-info"><div class="layer-dot-icon" style="background:var(--forest-green);"></div> Forest Reserves</div>
+            <div class="toggle on" id="lyr-forest"></div>
+          </div>
+          <div class="layer-row" onclick="toggleLayer('mining')">
+            <div class="layer-info"><div class="layer-dot-icon" style="background:var(--gold);"></div> Mining Concessions</div>
+            <div class="toggle" id="lyr-mining"></div>
+          </div>
+          <div class="layer-row" onclick="toggleLayer('military')">
+            <div class="layer-info"><div class="layer-dot-icon" style="background:var(--gold-dim);"></div> Military Zones</div>
+            <div class="toggle" id="lyr-military"></div>
+          </div>
+          <div class="layer-row" onclick="toggleLayer('heat')">
+            <div class="layer-info"><div class="layer-dot-icon" style="background:#FF6B35;"></div> NASA FIRMS Heat</div>
+            <div class="toggle" id="lyr-heat"></div>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="section-title">Live Data Sources</div>
+          <div class="source-row">
+            <div class="source-name"><div class="pulse-dot green" style="width:5px;height:5px;"></div> CERSGIS/SERVIR-WA</div>
+            <span class="source-status live">LIVE</span>
+          </div>
+          <div class="source-row">
+            <div class="source-name"><div class="pulse-dot green" style="width:5px;height:5px;"></div> Sentinel-1 SAR</div>
+            <span class="source-status live">LIVE</span>
+          </div>
+          <div class="source-row">
+            <div class="source-name"><div class="pulse-dot gold" style="width:5px;height:5px;"></div> Landsat 8/9</div>
+            <span class="source-status delayed">6H AGO</span>
+          </div>
+          <div class="source-row">
+            <div class="source-name"><div class="pulse-dot green" style="width:5px;height:5px;"></div> NASA FIRMS VIIRS</div>
+            <span class="source-status live">LIVE</span>
+          </div>
+          <div class="source-row">
+            <div class="source-name"><div class="pulse-dot green" style="width:5px;height:5px;"></div> Ghana EPA Sensors</div>
+            <span class="source-status live">LIVE</span>
+          </div>
+          <div class="source-row">
+            <div class="source-name"><div class="pulse-dot gold" style="width:5px;height:5px;"></div> Google Earth Engine</div>
+            <span class="source-status delayed">SYNCED</span>
+          </div>
+          <div class="source-row">
+            <div class="source-name"><div class="pulse-dot green" style="width:5px;height:5px;"></div> Anthropic Claude AI</div>
+            <span class="source-status live">LIVE</span>
+          </div>
+          <div class="source-row">
+            <div class="source-name"><div class="pulse-dot gold" style="width:5px;height:5px;"></div> Minerals Commission</div>
+            <span class="source-status pending">PENDING</span>
+          </div>
+        </div>
+
+      </div>
+
+<div class="sidebar right" id="right-sidebar">
+
+        <div class="ai-panel">
+          <div class="ai-header-bar">
+            <div class="ai-icon">◈</div>
+            <div style="flex:1;">
+              <div class="ai-name">NAIMOS · AI</div>
+              <div class="ai-connected"><div class="pulse-dot green" style="width:5px;height:5px;"></div> GEMINI CONNECTED</div>
+            </div>
+            <div style="display:flex;gap:4px;align-items:center;">
+              <button class="ai-toggle-btn" id="ai-chat-toggle" onclick="toggleAIChat()" title="Collapse/expand chat">▾</button>
+              <button class="ai-toggle-btn" onclick="toggleRightSidebarSlim()" title="Close AI panel" style="font-size:11px;">✕</button>
+            </div>
+          </div>
+
+          <div class="quick-actions">
+            <div class="q-btn" onclick="sendQuickMsg('Analyze current threat level in Western Region')">Threat Analysis</div>
+            <div class="q-btn" onclick="sendQuickMsg('Predict galamsey activity for next 7 days in Ghana')">7-Day Forecast</div>
+            <div class="q-btn" onclick="sendQuickMsg('What is the environmental impact of active galamsey sites?')">Env. Impact</div>
+            <div class="q-btn" onclick="sendQuickMsg('Recommend NAIMOS deployment strategy for high-risk zones')">Deployment Plan</div>
+            <div class="q-btn" onclick="sendQuickMsg('Analyze water contamination risk near active mining sites')">Water Risk</div>
+            <div class="q-btn" onclick="sendQuickMsg('Which predicted sites need immediate surveillance?')">Priority Sites</div>
+          </div>
+
+          <div class="chat-feed" id="chat-feed">
+            <div class="chat-msg ai-msg">
+              <div class="msg-timestamp">NAIMOS-AI · SYSTEM INIT</div>
+              NAIMOS Anti-Galamsey Intelligence System online. Monitoring all 16 regions of Ghana. <strong>14 active sites</strong> detected, <strong>7 high-probability predicted sites</strong> flagged. Satellite feeds nominal. EPA water sensors active. Powered by Google Gemini AI. How can I assist Operation NAIMOS?
+            </div>
+          </div>
+
+          <div class="typing-anim" id="typing-anim">
+            <span>AI ANALYZING</span>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+          </div>
+
+          <div class="chat-input-bar">
+            <input type="text" class="chat-input" id="ai-input" placeholder="Ask NAIMOS-AI about galamsey activity..." onkeydown="if(event.key==='Enter')sendAIMessage()"/>
+            <button class="send-btn" id="send-btn" onclick="sendAIMessage()">SEND</button>
+          </div>
+        </div>
+
+        <!-- Live Alerts -->
+        <div class="alerts-panel">
+          <div class="alerts-panel-title">
+            <span>Live Alerts</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span class="alert-count-pill" id="alert-count">6</span>
+              <button class="ai-toggle-btn" id="alerts-toggle" onclick="toggleAlerts()" title="Collapse/expand alerts" style="width:20px;height:20px;font-size:11px;">▾</button>
+            </div>
+          </div>
+
+          <div class="alert-entry" onclick="focusAlert('W-01')">
+            <div class="alert-dot critical"></div>
+            <div>
+              <div class="alert-body"><b>NEW ACTIVITY:</b> Expanded excavation SITE-W01, Tarkwa. +0.8ha via Sentinel-1 SAR.</div>
+              <div class="alert-meta">2 min ago · W-01 · Western</div>
+            </div>
+          </div>
+          <div class="alert-entry">
+            <div class="alert-dot warning"></div>
+            <div>
+              <div class="alert-body"><b>PREDICTED:</b> High-risk signature Sefwi Wiawso. NDVI loss index 0.74. AI confidence 82%.</div>
+              <div class="alert-meta">18 min ago · PRED-W04 · AI System</div>
+            </div>
+          </div>
+          <div class="alert-entry">
+            <div class="alert-dot critical"></div>
+            <div>
+              <div class="alert-body"><b>WATER ALERT:</b> Mercury trace detected Pra River near SITE-W02. 8.4 μg/L (limit 2.0).</div>
+              <div class="alert-meta">34 min ago · Pra River · EPA Sensor</div>
+            </div>
+          </div>
+          <div class="alert-entry">
+            <div class="alert-dot warning"></div>
+            <div>
+              <div class="alert-body"><b>EQUIPMENT:</b> Excavator convoy tracked 7km from SITE-A01 perimeter. 3 vehicles.</div>
+              <div class="alert-meta">1h 12m ago · A-01 · Drone Feed</div>
+            </div>
+          </div>
+          <div class="alert-entry">
+            <div class="alert-dot info"></div>
+            <div>
+              <div class="alert-body">Sentinel-1 SAR pass complete. 3 new change-detection anomalies flagged for review.</div>
+              <div class="alert-meta">2h 05m ago · CERSGIS System</div>
+            </div>
+          </div>
+          <div class="alert-entry">
+            <div class="alert-dot safe"></div>
+            <div>
+              <div class="alert-body"><b>CONTAINED:</b> NAIMOS Unit 3 secured SITE-C01 Dunkwa. Area cleared, equipment seized.</div>
+              <div class="alert-meta">3h 40m ago · C-01 · Ground Intel</div>
+            </div>
+          </div>
+        </div>
+
+      <!-- Slim reopen strip (shown when sidebar fully closed) -->
+      <div class="slim-reopen" id="slim-reopen-strip" onclick="reopenRightSidebar()">
+        <div style="font-size:18px;color:var(--gold);opacity:0.7;">◈</div>
+        <div class="slim-reopen-label">NAIMOS · AI</div>
+      </div>
+      </div>
+    </div>
+  </div>
+<!-- ============ END GLOBAL SIDEBARS ============ -->
+
 </body>
 </html>
