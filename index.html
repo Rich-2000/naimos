@@ -4434,7 +4434,7 @@ async function callGeminiDirect(contents) {
   // Direct browser → Gemini call (Gemini allows browser CORS with API key in URL)
   // This is the fallback for file:// protocol or when /api/chat is unavailable
   const GEMINI_API_KEY = 'AIzaSyA8zIXiP7GyUoqUvQNAnJF1AuJxIGmiHn8';
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
 
   const body = {
     system_instruction: { parts: [{ text: NAIMOS_SYSTEM_PROMPT }] },
