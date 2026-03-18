@@ -1,4 +1,3 @@
-new index.html:
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2163,10 +2162,12 @@ html, body {
       
       <!-- RIGHT SIDEBAR MOVED TO GLOBAL -->
 
+    </div><!-- end map-layout -->
+  </div><!-- end tab-map -->
 
   <!-- ====== TAB: ANALYTICS ====== -->
   <div id="tab-analytics" class="tab-panel">
-    <div class="analytics-layout" id="analytics-content">
+    <div class="analytics-layout visible" id="analytics-content">
       <div class="stats-row">
         <div class="kpi-card gold-top">
           <div class="kpi-label">Total Active Sites</div>
@@ -2829,6 +2830,18 @@ html, body {
           <button onclick="loadPCScenes('s1','western')"
             style="background:rgba(255,140,0,0.1);border:1px solid rgba(255,140,0,0.3);color:var(--orange-warn);font-family:'Orbitron',monospace;font-size:9px;font-weight:700;padding:8px 12px;border-radius:3px;cursor:pointer;letter-spacing:1px;white-space:nowrap;">
             ⚡ QUICK: SAR WESTERN
+          </button>
+          <button onclick="loadPCLULC(document.getElementById('pc-region').value)"
+            style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);color:var(--green-safe);font-family:'Orbitron',monospace;font-size:9px;font-weight:700;padding:8px 12px;border-radius:3px;cursor:pointer;letter-spacing:1px;white-space:nowrap;">
+            🏭 LULC BARE GROUND
+          </button>
+          <button onclick="loadPCForestAlerts(document.getElementById('pc-region').value)"
+            style="background:rgba(46,204,113,0.08);border:1px solid rgba(46,204,113,0.25);color:#2ECC71;font-family:'Orbitron',monospace;font-size:9px;font-weight:700;padding:8px 12px;border-radius:3px;cursor:pointer;letter-spacing:1px;white-space:nowrap;">
+            🌲 GLAD FOREST ALERTS
+          </button>
+          <button onclick="loadPCJRCWater(document.getElementById('pc-region').value)"
+            style="background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.25);color:var(--teal-water);font-family:'Orbitron',monospace;font-size:9px;font-weight:700;padding:8px 12px;border-radius:3px;cursor:pointer;letter-spacing:1px;white-space:nowrap;">
+            💧 JRC RIVER CHANGE
           </button>
         </div>
 
@@ -4268,7 +4281,119 @@ async function downloadPCScene(sceneId, dataset) {
   }
 }
 
-// PC tokens handled in production init block below
+// ===== PLANETARY COMPUTER EXTRA DATASETS =====
+async function loadPCLULC(regionKey) {
+  const regionBbox = {
+    western: [-3.3, 4.7, -1.5, 6.8],
+    ashanti: [-2.5, 5.8, -0.8, 7.3],
+    ghana:   [-3.3, 4.7,  1.2, 11.2]
+  };
+  const bbox = regionBbox[regionKey] || regionBbox.western;
+  setPCStatus('loading', `⟳ Fetching Impact Observatory LULC for ${regionKey}...`);
+  try {
+    const resp = await fetch(`${PC_STAC}/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        collections: ['io-lulc-9-class'],
+        bbox,
+        limit: 5,
+        sortby: [{ field: 'datetime', direction: 'desc' }]
+      })
+    });
+    const data = await resp.json();
+    const scenes = data.features || [];
+    if (!scenes.length) { setPCStatus('loading', '⚠ No LULC scenes found.'); return; }
+    const scene = scenes[0];
+    const dataHref = scene.assets?.data?.href || scene.assets?.['io-lulc']?.href;
+    if (!dataHref) { setPCStatus('loading', '⚠ No data asset in LULC scene.'); return; }
+    const token = await getPCToken('s2');
+    const signedUrl = token ? dataHref + (dataHref.includes('?') ? '&' : '?') + token : dataHref;
+    setPCStatus('success', `✓ LULC loaded · ${scene.properties?.datetime?.slice(0,10)} · Class 1=Bare Ground (Galamsey)`);
+    const panel = document.getElementById('pc-scene-detail');
+    if (panel) {
+      panel.innerHTML = `
+        <div style="font-family:'Orbitron',monospace;font-size:8.5px;color:var(--gold);letter-spacing:2px;margin-bottom:8px;">IMPACT OBS. LULC</div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:10px;line-height:1.6;">
+          Date: <strong style="color:var(--text-primary);">${scene.properties?.datetime?.slice(0,10)}</strong><br>
+          Class 1 = Bare/disturbed ground = galamsey risk
+        </div>
+        ${Object.entries(scene.assets || {}).slice(0,5).map(([k,v]) => `
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--dark-border);font-size:10.5px;">
+            <span style="color:var(--text-secondary);font-family:monospace;">${k}</span>
+            <a href="${signedUrl}" target="_blank"
+              style="color:var(--gold);font-family:'Orbitron',monospace;font-size:7.5px;padding:2px 6px;border:1px solid rgba(212,160,23,0.3);border-radius:2px;text-decoration:none;">
+              OPEN ↗
+            </a>
+          </div>`).join('')}`;
+      panel.style.display = 'block';
+      const ph = document.getElementById('pc-scene-placeholder');
+      if (ph) ph.style.display = 'none';
+    }
+  } catch(e) { setPCStatus('error', `✗ LULC failed: ${e.message}`); }
+}
+
+async function loadPCJRCWater(regionKey) {
+  const regionBbox = {
+    western: [-3.3, 4.7, -1.5, 6.8],
+    ashanti: [-2.5, 5.8, -0.8, 7.3],
+    ghana:   [-3.3, 4.7,  1.2, 11.2]
+  };
+  const bbox = regionBbox[regionKey] || regionBbox.western;
+  setPCStatus('loading', `⟳ Fetching JRC Surface Water data for ${regionKey}...`);
+  try {
+    const resp = await fetch(`${PC_STAC}/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        collections: ['jrc-gsw'],
+        bbox,
+        limit: 3,
+        sortby: [{ field: 'datetime', direction: 'desc' }]
+      })
+    });
+    const data = await resp.json();
+    const scenes = data.features || [];
+    if (!scenes.length) { setPCStatus('loading', '⚠ No JRC water scenes found.'); return; }
+    setPCStatus('success', `✓ JRC Surface Water: ${scenes.length} scenes · Tracks river changes near galamsey sites`);
+    renderPCSceneTable(scenes, 'jrc-water', regionKey);
+    renderPCSceneChart(scenes, 'jrc-water');
+  } catch(e) { setPCStatus('error', `✗ JRC Water: ${e.message}`); }
+}
+
+async function loadPCForestAlerts(regionKey) {
+  const regionBbox = {
+    western: [-3.3, 4.7, -1.5, 6.8],
+    ashanti: [-2.5, 5.8, -0.8, 7.3],
+    ghana:   [-3.3, 4.7,  1.2, 11.2]
+  };
+  const bbox = regionBbox[regionKey] || regionBbox.ghana;
+  const today  = new Date();
+  const fromDt = new Date(today - 90 * 864e5).toISOString().slice(0,10);
+  const toDt   = today.toISOString().slice(0,10);
+  setPCStatus('loading', `⟳ Fetching GLAD forest change alerts for ${regionKey}...`);
+  try {
+    const resp = await fetch(`${PC_STAC}/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        collections: ['glad-forest-change'],
+        bbox,
+        datetime: `${fromDt}T00:00:00Z/${toDt}T23:59:59Z`,
+        limit: 8,
+        sortby: [{ field: 'datetime', direction: 'desc' }]
+      })
+    });
+    const data = await resp.json();
+    const scenes = data.features || [];
+    if (!scenes.length) { setPCStatus('loading', '⚠ No GLAD forest alerts for selected region/period.'); return; }
+    setPCStatus('success', `✓ GLAD: ${scenes.length} forest change alerts · ${fromDt} → ${toDt}`);
+    renderPCSceneTable(scenes, 'glad-forest', regionKey);
+    renderPCSceneChart(scenes, 'glad-forest');
+  } catch(e) { setPCStatus('error', `✗ GLAD alerts: ${e.message}`); }
+}
+
+
 
 const NAIMOS_SYSTEM_PROMPT = `You are NAIMOS-AI, the intelligence and analysis system for Ghana's National Anti-Illegal Mining Operations Secretariat (NAIMOS).
 
@@ -4720,6 +4845,12 @@ function switchTab(tab) {
     document.getElementById('intel-content').classList.add('visible');
   } else if (tab === 'ops') {
     document.getElementById('ops-content').classList.add('visible');
+  } else if (tab === 'firms') {
+    document.getElementById('firms-content').classList.add('visible');
+    setTimeout(() => {
+      if (firmsBarChart) { try { firmsBarChart.resize(); firmsBarChart.update(); } catch(e){} }
+      if (firmsDNChart) { try { firmsDNChart.resize(); firmsDNChart.update(); } catch(e){} }
+    }, 50);
   } else if (tab === 'sentinel') {
     document.getElementById('sentinel-content').classList.add('visible');
     const dl = document.getElementById('sentinel-date-label');
@@ -4729,7 +4860,7 @@ function switchTab(tab) {
   } else if (tab === 'gee') {
     document.getElementById('gee-content').classList.add('visible');
   }
-  // Only close sidebars on mobile (on desktop they stay open across tabs)
+
   if (!isDesktop()) closeAllSidebars();
 }
 
@@ -5628,8 +5759,6 @@ console.log('%c CORS Proxies: allorigins.win → corsproxy.io → thingproxy (fa
         <div class="slim-reopen-label">NAIMOS · AI</div>
       </div>
       </div>
-    </div>
-  </div>
 <!-- ============ END GLOBAL SIDEBARS ============ -->
 
 
