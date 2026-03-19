@@ -4,11 +4,19 @@
     {
       "src": "backend/src/server.ts",
       "use": "@vercel/node"
+    },
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "api-client.js",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "backend/src/server.ts" },
-    { "src": "/(.*)",     "dest": "/index.html" }
+    { "src": "/(.*)",     "dest": "/$1" }
   ],
   "env": {
     "NODE_ENV": "production"
