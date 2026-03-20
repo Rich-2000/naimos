@@ -9,7 +9,8 @@ healthRouter.get('/', async (_req: Request, res: Response) => {
     gemini:    config.geminiApiKey    ? 'configured' : 'missing',
     firms:     config.firmsMapKey     ? 'configured' : 'missing (pass per-request)',
     sentinel:  config.sentinelClientId && config.sentinelClientSecret ? 'configured' : 'missing',
-    gee:       config.geeApiKey       ? 'configured' : 'missing',
+    // GEE uses a service account (no API key) — check for service account email + private key
+    gee:       config.geeServiceAccount && config.geePrivateKey ? 'configured' : 'missing',
     planetary: 'public (no key needed)',
     timestamp: new Date().toISOString(),
   };

@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "NAIMOS AMS — Node.js/TypeScript API backend",
   "main": "dist/server.js",
+  "type": "commonjs",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit"
@@ -21,6 +22,7 @@
     "@types/express": "^4.17.21",
     "@types/node": "^20.14.0",
     "ts-node-dev": "^2.0.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.4.5"
   },
   "engines": {

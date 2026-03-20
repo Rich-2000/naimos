@@ -55,21 +55,30 @@ app.use('/api/gee',       geeRouter);
 app.use('/api/planetary', planetaryRouter);
 
 // ── Serve static frontend ─────────────────────────────────
-app.use(express.static(path.join(__dirname, '../../')));
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(__dirname, '../../index.html'));
-});
+// Only serve static files in local development.
+// On Vercel, the static files are served separately by @vercel/static.
+if (process.env.NODE_ENV !== 'production') {
+  app.use(express.static(path.join(__dirname, '../../')));
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(__dirname, '../../index.html'));
+  });
+}
 
 // ── Error handler ─────────────────────────────────────────
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`\n🛰  NAIMOS AMS Backend running on http://localhost:${PORT}`);
-  console.log(`   Environment : ${process.env.NODE_ENV || 'development'}`);
-  console.log(`   Gemini AI   : ${process.env.GEMINI_API_KEY      ? '✓ key set'         : '✗ GEMINI_API_KEY missing'}`);
-  console.log(`   NASA FIRMS  : ${process.env.FIRMS_MAP_KEY        ? '✓ key set'         : '⚠ FIRMS_MAP_KEY missing'}`);
-  console.log(`   Sentinel Hub: ${process.env.SENTINEL_CLIENT_ID   ? '✓ credentials set' : '⚠ SENTINEL credentials missing'}`);
-  console.log(`   GEE         : ${process.env.GEE_SERVICE_ACCOUNT  ? '✓ service account set' : '✗ GEE_SERVICE_ACCOUNT missing'}`);
-});
+// ── Start server only in local dev (NOT on Vercel) ────────
+// Vercel imports this file as a module and uses `export default app`.
+// Calling app.listen() inside a Vercel serverless function causes it to hang.
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`\n🛰  NAIMOS AMS Backend running on http://localhost:${PORT}`);
+    console.log(`   Environment : ${process.env.NODE_ENV || 'development'}`);
+    console.log(`   Gemini AI   : ${process.env.GEMINI_API_KEY       ? '✓ key set'              : '✗ GEMINI_API_KEY missing'}`);
+    console.log(`   NASA FIRMS  : ${process.env.FIRMS_MAP_KEY         ? '✓ key set'              : '⚠ FIRMS_MAP_KEY missing'}`);
+    console.log(`   Sentinel Hub: ${process.env.SENTINEL_CLIENT_ID    ? '✓ credentials set'      : '⚠ SENTINEL credentials missing'}`);
+    console.log(`   GEE         : ${process.env.GEE_SERVICE_ACCOUNT   ? '✓ service account set'  : '✗ GEE_SERVICE_ACCOUNT missing'}`);
+  });
+}
 
 export default app;
