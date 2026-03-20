@@ -2,16 +2,25 @@
   "version": 2,
   "builds": [
     {
-      "src": "backend/src/server.ts",
+      "src": "naimos-backend/src/server.ts",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["backend/src/**"]
+        "includeFiles": ["naimos-backend/src/**"]
       }
+    },
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "api-client.js",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "backend/src/server.ts" },
-    { "src": "/(.*)",     "dest": "/$1" }
+    { "src": "/api/(.*)", "dest": "naimos-backend/src/server.ts" },
+    { "src": "/api-client.js", "dest": "/api-client.js" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "env": {
     "NODE_ENV": "production"
