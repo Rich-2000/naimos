@@ -11,6 +11,8 @@ import { planetaryRouter } from './routes/planetary';
 import { healthRouter } from './routes/health';
 import { errorHandler } from './middleware/errorHandler';
 import { logger } from './middleware/logger';
+import { dronesRouter  } from './routes/drones';
+import { naimosRouter  } from './routes/naimos_scraper';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -53,6 +55,8 @@ app.use('/api/firms',     firmsRouter);
 app.use('/api/sentinel',  sentinelRouter);
 app.use('/api/gee',       geeRouter);
 app.use('/api/planetary', planetaryRouter);
+app.use('/api/drones',  dronesRouter);
+app.use('/api/naimos',  naimosRouter);
 
 // ── Serve static frontend ─────────────────────────────────
 // Only serve static files in local development.

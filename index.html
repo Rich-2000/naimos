@@ -10896,5 +10896,1290 @@ document.getElementById('ops-assign-modal')?.addEventListener('click', e => {
 });
 
 </script>
+<!-- ═══════════════════════════════════════════════════════════════════════════
+  NAIMOS AMS — COMPREHENSIVE PATCH SCRIPT
+  Inject this <script> block just before </body> in index.html
+  It fixes ALL reported issues without modifying the existing HTML structure.
+
+  FIXES APPLIED:
+  1. Removes MAP_KEY input field from Live Satellites tab
+  2. High-Risk Regions sidebar fetches real FIRMS data
+  3. Mobile table responsiveness — horizontal scroll + responsive wrappers
+  4. Operations cards fetch real data from /api/naimos/stats
+  5. New UAVs/Drones nav tab + tab panel
+  6. Auto-fetch FIRMS data on page load (no MAP_KEY needed — backend handles it)
+  ═══════════════════════════════════════════════════════════════════════════ -->
+
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   PATCH: MOBILE TABLE RESPONSIVENESS
+   All data tables get horizontal scroll + minimum column widths
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Ensure all table containers scroll horizontally on mobile */
+.firms-table-wrap,
+.firms-panel > div[style*="overflow-x"],
+.intel-card > div[style*="overflow-x"],
+.ops-layout > div[style*="overflow-x"],
+.analytics-layout > div[style*="overflow-x"] {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Add scroll wrapper to ALL .data-tbl parents that don't already have it */
+.data-tbl-scroll-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-md);
+  /* Subtle scroll indicator */
+  background:
+    linear-gradient(to right, var(--dark-card) 20px, transparent 20px),
+    linear-gradient(to left,  var(--dark-card) 20px, transparent 20px) 100% 0,
+    radial-gradient(farthest-side at 0%   50%, rgba(212,160,23,0.15), transparent),
+    radial-gradient(farthest-side at 100% 50%, rgba(212,160,23,0.15), transparent) 100% 0;
+  background-repeat: no-repeat;
+  background-color: var(--dark-card);
+  background-size: 20px 100%, 20px 100%, 10px 100%, 10px 100%;
+  background-attachment: local, local, scroll, scroll;
+}
+
+/* Give tables minimum widths so they don't squish on mobile */
+.data-tbl { min-width: 680px; width: 100%; }
+#firms-table { min-width: 860px; }
+#intel-tbody { font-size: 11px; }
+
+/* Make all tables' overflow-x containers work */
+@media (max-width: 960px) {
+  .firms-panel,
+  .intel-card,
+  .ops-layout > div,
+  .analytics-layout > div {
+    overflow-x: visible !important;
+  }
+  
+  /* Chart grid: stack on mobile */
+  div[style*="grid-template-columns:1fr 1fr"],
+  div[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+  div[style*="grid-template-columns:repeat(3,1fr)"],
+  div[style*="grid-template-columns: repeat(3, 1fr)"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   PATCH: UAVs / DRONES TAB — full production styles
+   ══════════════════════════════════════════════════════════════════ */
+
+#tab-uav { display: none; }
+#tab-uav.active { display: flex; flex-direction: column; }
+
+.uav-layout {
+  padding: 14px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Drone image grid */
+.drone-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+@media (max-width: 640px) {
+  .drone-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 400px) {
+  .drone-grid { grid-template-columns: 1fr; }
+}
+
+.drone-img-card {
+  background: var(--dark-panel);
+  border: 1px solid var(--dark-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+}
+.drone-img-card:hover {
+  border-color: rgba(212,160,23,0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.drone-img-card img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  display: block;
+  background: var(--dark-base);
+}
+.drone-img-card .card-placeholder {
+  width: 100%;
+  height: 160px;
+  background: linear-gradient(135deg, #0A0D14, #131820);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+.drone-img-meta {
+  padding: 8px 10px;
+}
+.drone-img-mission {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 8px;
+  color: var(--gold);
+  letter-spacing: 0.8px;
+  margin-bottom: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drone-img-region {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.drone-img-time {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 8.5px;
+  color: var(--text-muted);
+}
+.drone-img-tags {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+}
+.drone-tag {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 7px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  border: 1px solid;
+}
+.drone-tag.water  { color: var(--teal-water);  border-color: rgba(0,212,170,0.3);  background: rgba(0,212,170,0.06); }
+.drone-tag.fire   { color: var(--red-alert);   border-color: rgba(255,59,59,0.3);  background: rgba(255,59,59,0.06); }
+.drone-tag.forest { color: var(--green-safe);  border-color: rgba(0,255,136,0.3);  background: rgba(0,255,136,0.06); }
+.drone-tag.other  { color: var(--text-secondary); border-color: var(--dark-border-light); background: transparent; }
+
+.drone-new-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0,255,136,0.15);
+  border: 1px solid rgba(0,255,136,0.4);
+  color: var(--green-safe);
+  font-family: 'Orbitron', monospace;
+  font-size: 6.5px;
+  padding: 2px 5px;
+  border-radius: 2px;
+  letter-spacing: 1px;
+}
+
+/* Missions strip */
+.missions-strip {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.mission-strip-card {
+  background: var(--dark-panel);
+  border: 1px solid var(--dark-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  min-width: 160px;
+  flex: 1;
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.mission-strip-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+}
+.mission-strip-card.active::before  { background: var(--red-alert); }
+.mission-strip-card.complete::before { background: var(--green-safe); }
+.mission-strip-card.standby::before { background: var(--gold); }
+.mission-strip-card:hover { border-color: rgba(212,160,23,0.3); }
+.mission-strip-id   { font-family: 'Share Tech Mono', monospace; font-size: 8px; color: var(--gold); margin-bottom: 3px; }
+.mission-strip-name { font-size: 11px; font-weight: 600; color: var(--text-primary); margin-bottom: 3px; }
+.mission-strip-sub  { font-family: 'Share Tech Mono', monospace; font-size: 8px; color: var(--text-muted); }
+
+/* UAV lightbox */
+.uav-lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.9);
+  z-index: 3000;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  backdrop-filter: blur(8px);
+}
+.uav-lightbox.active { display: flex; }
+.uav-lightbox-panel {
+  background: var(--dark-card);
+  border: 1px solid var(--dark-border-light);
+  border-radius: 8px;
+  width: 100%;
+  max-width: 860px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(212,160,23,0.06);
+  position: relative;
+}
+.uav-lb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--dark-border);
+  flex-shrink: 0;
+  position: relative;
+}
+.uav-lb-header::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold-dim) 30%, var(--gold) 50%, var(--gold-dim) 70%, transparent);
+}
+.uav-lb-close {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--dark-border-light);
+  color: var(--text-secondary);
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--transition);
+}
+.uav-lb-close:hover { background: rgba(255,59,59,0.12); color: var(--red-alert); }
+.uav-lb-body { flex: 1; overflow-y: auto; min-height: 0; }
+.uav-lb-img-wrap { background: #050810; display: flex; align-items: center; justify-content: center; min-height: 280px; }
+.uav-lb-img-wrap img { max-width: 100%; max-height: 55vh; object-fit: contain; }
+.uav-lb-meta {
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  border-top: 1px solid var(--dark-border);
+  flex-shrink: 0;
+}
+@media (max-width: 520px) {
+  .uav-lb-meta { grid-template-columns: 1fr 1fr; }
+}
+.uav-lb-meta-item { display: flex; flex-direction: column; gap: 2px; }
+.uav-lb-key { font-family: 'Orbitron', monospace; font-size: 7.5px; color: var(--text-muted); letter-spacing: 1.5px; }
+.uav-lb-val { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--text-primary); }
+.uav-lb-notes { padding: 10px 16px; border-top: 1px solid var(--dark-border); font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
+
+/* Mission filter buttons in UAV tab */
+.uav-filter-bar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.uav-filter-btn {
+  font-family: 'Orbitron', monospace;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  padding: 5px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  border: 1px solid var(--dark-border-light);
+  color: var(--text-muted);
+  background: transparent;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+.uav-filter-btn.active,
+.uav-filter-btn:hover {
+  color: var(--gold);
+  border-color: rgba(212,160,23,0.4);
+  background: rgba(212,160,23,0.06);
+}
+
+/* UAV stats row */
+.uav-stats-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.uav-stat {
+  background: var(--dark-panel);
+  border: 1px solid var(--dark-border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  flex: 1;
+  min-width: 100px;
+  text-align: center;
+}
+.uav-stat-num {
+  font-family: 'Orbitron', monospace;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 3px;
+}
+.uav-stat-lbl {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 8px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Upload panel inside UAV tab */
+.uav-upload-zone {
+  border: 2px dashed var(--dark-border-light);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  text-align: center;
+  transition: var(--transition);
+  position: relative;
+  cursor: pointer;
+}
+.uav-upload-zone:hover,
+.uav-upload-zone.drag-over {
+  border-color: var(--gold);
+  background: rgba(212,160,23,0.03);
+}
+.uav-upload-zone input[type=file] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+</style>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   NAIMOS AMS — COMPLETE PATCH SCRIPT  (inject before </body>)
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function NAIMOS_PATCH() {
+  'use strict';
+
+  // ── 1. REMOVE MAP_KEY INPUT FROM LIVE SATELLITES TAB ─────────────────────
+  function patchFirmsTab() {
+    // Remove the API key input
+    const keyInput = document.getElementById('firms-key-input');
+    if (keyInput) {
+      const wrapper = keyInput.closest('div[style]') || keyInput.parentElement;
+      keyInput.remove();
+    }
+
+    // Update status text to reflect backend-managed key
+    const statusText = document.getElementById('firms-status-text');
+    if (statusText) {
+      statusText.textContent = 'FIRMS MAP_KEY managed by backend. Click FETCH LIVE DATA to load.';
+    }
+
+    // Auto-trigger fetch if firms tab is open or when it becomes active
+    // Also auto-trigger on page load after 2s
+    if (!window._firmsPatchAutoFetched) {
+      window._firmsPatchAutoFetched = true;
+      setTimeout(() => {
+        if (typeof fetchFIRMSData === 'function') {
+          // fetchFIRMSData in the original code reads firms-key-input
+          // We need to ensure it reads from backend instead
+          _patchedFetchFIRMS();
+        }
+      }, 2500);
+    }
+  }
+
+  // Patched FIRMS fetch: reads key from backend (ignores removed input)
+  async function _patchedFetchFIRMS() {
+    const statusEl  = document.getElementById('firms-fetch-status');
+    const statusTxt = document.getElementById('firms-status-text');
+    if (statusTxt) statusTxt.textContent = '⟳ Fetching NASA FIRMS data via backend…';
+    if (statusEl)  statusEl.className = 'fetch-status loading';
+
+    const days   = document.getElementById('firms-days')?.value   || '2';
+    const sensor = document.getElementById('firms-sensor')?.value || 'VIIRS_SNPP_NRT';
+
+    try {
+      const API = _getPatchAPIBase();
+      const resp = await fetch(`${API}/firms?days=${days}&sensor=${encodeURIComponent(sensor)}`, {
+        signal: AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined
+      });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+
+      // The backend returns { data: [...], count, source, ... }
+      const rows = data.data || data.rows || data || [];
+      if (!Array.isArray(rows) || !rows.length) throw new Error('No data returned');
+
+      // Inject into window.firmsData so the rest of the app uses it
+      window.firmsData = rows;
+
+      // Update stats
+      _updateFIRMSStats(rows);
+
+      if (statusTxt) statusTxt.textContent = `✓ ${rows.length} hotspots loaded via backend · ${new Date().toUTCString().slice(17,25)} UTC`;
+      if (statusEl)  statusEl.className = 'fetch-status success';
+
+      // Trigger original rendering if available
+      if (typeof renderFIRMSTable === 'function') renderFIRMSTable(rows);
+      if (typeof renderFIRMSCharts === 'function') renderFIRMSCharts(rows);
+      if (typeof _updateFirmsBarChart === 'function') _updateFirmsBarChart(rows);
+      if (typeof _updateFirmsDNChart === 'function')  _updateFirmsDNChart(rows);
+
+    } catch(err) {
+      if (statusTxt) statusTxt.textContent = '✗ FIRMS fetch failed: ' + err.message + ' — check backend';
+      if (statusEl)  statusEl.className = 'fetch-status error';
+      console.warn('[NAIMOS PATCH] FIRMS fetch error:', err);
+    }
+  }
+
+  function _updateFIRMSStats(rows) {
+    const total  = rows.length;
+    const high   = rows.filter(r => r.confidence === 'h' || parseFloat(r.confidence) >= 80).length;
+    const day    = rows.filter(r => (r.daynight||r.day_night||'') === 'D').length;
+    const night  = total - day;
+    const frps   = rows.map(r => parseFloat(r.frp||r.fire_radiative_power||0)).filter(v=>!isNaN(v));
+    const maxFrp = frps.length ? Math.max(...frps).toFixed(1) : '—';
+    const western = rows.filter(r => {
+      const lat = parseFloat(r.latitude||r.lat||0);
+      const lon = parseFloat(r.longitude||r.lon||0);
+      return lat >= 4.7 && lat <= 6.8 && lon >= -3.3 && lon <= -1.5;
+    }).length;
+
+    const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+    set('firms-total', total);
+    set('firms-high', high);
+    set('firms-day', day);
+    set('firms-night', night);
+    set('firms-maxfrp', maxFrp);
+    set('firms-western', western);
+  }
+
+  // Override the original fetchFIRMSData to use backend (no MAP_KEY)
+  window.fetchFIRMSData = function() { _patchedFetchFIRMS(); };
+
+
+  // ── 2. HIGH-RISK REGIONS — fetch real data from FIRMS ────────────────────
+  function patchHighRiskRegions() {
+    // Find the High-Risk Regions section in the left sidebar
+    // It's identified by its section title text
+    function updateRegions(firmsData) {
+      if (!firmsData || !firmsData.length) return;
+
+      // Define Ghana region bounding boxes
+      const REGIONS = [
+        { name: 'Western',    lat:[4.7,6.8],   lon:[-3.3,-1.5] },
+        { name: 'Ashanti',    lat:[5.8,7.3],   lon:[-2.5,-0.8] },
+        { name: 'Eastern',    lat:[5.8,7.2],   lon:[-0.8, 0.8] },
+        { name: 'Central',    lat:[5.0,6.2],   lon:[-2.2,-0.8] },
+        { name: 'Bono/Ahafo', lat:[7.0,8.5],   lon:[-3.0,-0.5] },
+        { name: 'Northern',   lat:[8.5,11.2],  lon:[-3.0,-0.5] },
+        { name: 'Upper West', lat:[9.5,11.2],  lon:[-3.0,-2.0] },
+        { name: 'Volta',      lat:[6.0, 9.0],  lon:[ 0.0, 1.2] },
+      ];
+
+      const regionCounts = REGIONS.map(r => {
+        const pts = firmsData.filter(p => {
+          const lat = parseFloat(p.latitude||p.lat||0);
+          const lon = parseFloat(p.longitude||p.lon||0);
+          return lat >= r.lat[0] && lat <= r.lat[1] && lon >= r.lon[0] && lon <= r.lon[1];
+        });
+        const highConf = pts.filter(p => p.confidence === 'h' || parseFloat(p.confidence) >= 80).length;
+        const maxFrp   = pts.reduce((mx,p) => Math.max(mx, parseFloat(p.frp||0)), 0);
+        return { ...r, count: pts.length, highConf, maxFrp };
+      }).sort((a,b) => b.count - a.count);
+
+      // Find region-list container in left sidebar
+      const regionLists = document.querySelectorAll('.region-list-item');
+      if (!regionLists.length) {
+        // Sidebar not yet rendered — try to find by section header
+        const allSections = document.querySelectorAll('.sidebar-section');
+        allSections.forEach(sec => {
+          const title = sec.querySelector('.section-title');
+          if (title && title.textContent.toLowerCase().includes('risk')) {
+            _renderRegionList(sec, regionCounts);
+          }
+        });
+        return;
+      }
+
+      // Update existing region items
+      regionLists.forEach((item, i) => {
+        if (i >= regionCounts.length) return;
+        const r = regionCounts[i];
+        const nameEl  = item.querySelector('.region-name');
+        const subEl   = item.querySelector('.region-sub');
+        const badgeEl = item.querySelector('.threat-badge');
+
+        if (nameEl)  nameEl.textContent = r.name + ' Region';
+        if (subEl)   subEl.textContent  = `${r.count} hotspots · FRP max ${r.maxFrp.toFixed(1)} MW`;
+        if (badgeEl) {
+          const level = r.count >= 10 ? 'CRITICAL' : r.count >= 5 ? 'HIGH' : r.count >= 2 ? 'MEDIUM' : 'LOW';
+          const cls   = r.count >= 10 ? 'threat' : r.count >= 5 ? 'warn' : r.count >= 2 ? 'yellow' : 'safe';
+          badgeEl.textContent = level;
+          badgeEl.className = 'threat-badge ' + cls;
+        }
+      });
+    }
+
+    // Poll for FIRMS data arrival and update
+    let _regionPollCount = 0;
+    const regionPoller = setInterval(() => {
+      _regionPollCount++;
+      const fd = window.firmsData;
+      if (fd && fd.length) {
+        updateRegions(fd);
+        clearInterval(regionPoller);
+      }
+      if (_regionPollCount > 30) clearInterval(regionPoller); // give up after 30s
+    }, 1000);
+
+    // Also update whenever FIRMS data changes
+    const _origFirmsData = Object.getOwnPropertyDescriptor(window, 'firmsData');
+    let _lastFirmsLen = 0;
+    setInterval(() => {
+      const fd = window.firmsData;
+      if (fd && fd.length !== _lastFirmsLen) {
+        _lastFirmsLen = fd.length;
+        updateRegions(fd);
+      }
+    }, 2000);
+  }
+
+  function _renderRegionList(container, regions) {
+    // Build new region list HTML
+    const listHtml = regions.slice(0,8).map(r => {
+      const level = r.count >= 10 ? 'CRITICAL' : r.count >= 5 ? 'HIGH' : r.count >= 2 ? 'MEDIUM' : 'LOW';
+      const badgeCls = r.count >= 10 ? 'threat' : r.count >= 5 ? 'warn' : r.count >= 2 ? 'yellow' : 'safe';
+      return `
+        <div class="region-list-item" onclick="mapZoom(1)">
+          <div>
+            <div class="region-name">${r.name} Region</div>
+            <div class="region-sub">${r.count} hotspots · FRP max ${r.maxFrp.toFixed(1)} MW</div>
+          </div>
+          <span class="threat-badge ${badgeCls}">${level}</span>
+        </div>
+      `;
+    }).join('');
+
+    // Find or create list container
+    let listEl = container.querySelector('.region-list');
+    if (!listEl) {
+      listEl = document.createElement('div');
+      listEl.className = 'region-list';
+      container.appendChild(listEl);
+    }
+    listEl.innerHTML = listHtml;
+  }
+
+
+  // ── 3. WRAP ALL TABLES FOR HORIZONTAL SCROLL ─────────────────────────────
+  function patchTableScrolling() {
+    // For every table that's directly inside a div without overflow-x:auto, wrap it
+    document.querySelectorAll('.data-tbl, table.data-tbl').forEach(tbl => {
+      const parent = tbl.parentElement;
+      if (!parent) return;
+      const parentStyle = window.getComputedStyle(parent);
+      if (parentStyle.overflowX === 'auto' || parentStyle.overflowX === 'scroll') return;
+      if (parent.classList.contains('data-tbl-scroll-wrapper')) return;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'data-tbl-scroll-wrapper';
+      wrapper.style.overflowX = 'auto';
+      wrapper.style.webkitOverflowScrolling = 'touch';
+
+      parent.insertBefore(wrapper, tbl);
+      wrapper.appendChild(tbl);
+    });
+  }
+
+  // Re-run table scroll patching after dynamic content loads
+  setTimeout(patchTableScrolling, 2000);
+  setTimeout(patchTableScrolling, 5000);
+  const _origSwitchTab = window.switchTab;
+  if (typeof _origSwitchTab === 'function') {
+    window.switchTab = function(tab) {
+      _origSwitchTab.apply(this, arguments);
+      setTimeout(patchTableScrolling, 200);
+    };
+  }
+
+
+  // ── 4. OPERATIONS CARDS — real data from /api/naimos/stats ───────────────
+  async function patchOpsCards() {
+    try {
+      const API = _getPatchAPIBase();
+      const stats = await fetch(`${API}/naimos/stats`, {
+        signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined
+      }).then(r => r.json());
+
+      if (!stats) return;
+
+      // Ground raids card
+      const groundArrests = document.getElementById('ops-ground-arrests');
+      if (groundArrests && stats.totalArrested) groundArrests.textContent = stats.totalArrested.toLocaleString();
+
+      const groundExcav = document.getElementById('ops-ground-excavators');
+      if (groundExcav && stats.excavatorsSeized) groundExcav.textContent = stats.excavatorsSeized + '+';
+
+      const groundCount = document.getElementById('ops-ground-count');
+      if (groundCount && stats.sitesRaided) groundCount.textContent = `${stats.sitesRaided} SITES RAIDED · OPERATIONS ONGOING`;
+
+      // Equipment seizure card — update pumps/bulldozers if visible
+      document.querySelectorAll('.ops-card').forEach(card => {
+        const name = card.querySelector('.ops-name')?.textContent || '';
+        if (name.includes('Equipment')) {
+          const nums = card.querySelectorAll('[style*="font-size:16px"]');
+          if (nums[0] && stats.waterPumpsSeized) nums[0].textContent = stats.waterPumpsSeized.toLocaleString() + '+';
+          if (nums[1] && stats.bulldozersSeized) nums[1].textContent = stats.bulldozersSeized.toString();
+        }
+      });
+
+      // Legal card
+      const legalCount = document.getElementById('ops-legal-count');
+      if (legalCount && stats.facingProsecution) legalCount.textContent = stats.facingProsecution + '+';
+
+      // Update data source indicator
+      if (stats.source) {
+        const sourceTag = document.createElement('div');
+        sourceTag.style.cssText = `font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--text-muted);text-align:right;margin-top:4px;`;
+        sourceTag.textContent = `Data: ${stats.source === 'live' ? '✓ LIVE' : stats.source === 'cache' ? 'CACHED' : '⚠ FALLBACK'} · ${new Date(stats.lastUpdated).toUTCString().slice(0,16)} UTC`;
+        const opsHeader = document.querySelector('#tab-ops .ops-layout > div:first-child');
+        if (opsHeader && !opsHeader.querySelector('.ops-data-source')) {
+          sourceTag.classList.add('ops-data-source');
+          opsHeader.appendChild(sourceTag);
+        }
+      }
+
+    } catch(err) {
+      console.warn('[NAIMOS PATCH] Ops stats fetch failed:', err.message);
+    }
+  }
+
+
+  // ── 5. ADD UAVs/DRONES NAV TAB + FULL TAB PANEL ──────────────────────────
+  function injectUAVTab() {
+    // Add nav tab
+    const navBar = document.querySelector('.nav-bar');
+    if (navBar && !document.getElementById('nav-tab-uav')) {
+      const tab = document.createElement('div');
+      tab.id = 'nav-tab-uav';
+      tab.className = 'nav-tab';
+      tab.setAttribute('onclick', "switchTab('uav')");
+      tab.innerHTML = '<span class="tab-icon">🛸</span> UAVS/DRONES';
+      navBar.appendChild(tab);
+    }
+
+    // Add tab panel HTML
+    if (!document.getElementById('tab-uav')) {
+      const panel = document.createElement('div');
+      panel.id = 'tab-uav';
+      panel.className = 'tab-panel';
+      panel.innerHTML = _buildUAVTabHTML();
+
+      const appBody = document.querySelector('.app-body');
+      if (appBody) appBody.appendChild(panel);
+    }
+
+    // Register UAV tab in switchTab
+    const _origSwitch = window.switchTab;
+    if (typeof _origSwitch === 'function') {
+      window.switchTab = function(tab) {
+        _origSwitch.apply(this, arguments);
+        if (tab === 'uav') {
+          document.getElementById('nav-tab-uav')?.classList.add('active');
+          _uavTabInit();
+        } else {
+          document.getElementById('nav-tab-uav')?.classList.remove('active');
+        }
+      };
+    }
+  }
+
+  function _buildUAVTabHTML() {
+    return `
+    <div class="uav-layout">
+
+      <!-- Header -->
+      <div style="background:var(--dark-card);border:1px solid var(--dark-border);border-radius:var(--radius-md);padding:0;position:relative;flex-shrink:0;">
+        <div style="height:2px;background:linear-gradient(90deg,transparent,var(--gold-dim) 30%,var(--gold) 50%,var(--gold-dim) 70%,transparent);border-radius:var(--radius-md) var(--radius-md) 0 0;"></div>
+        <div style="padding:14px 16px;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+            <div>
+              <div style="font-family:'Orbitron',monospace;font-size:8.5px;letter-spacing:3px;color:var(--text-muted);margin-bottom:5px;">NAIMOS AERIAL INTELLIGENCE</div>
+              <div style="font-family:'Orbitron',monospace;font-size:15px;font-weight:800;color:var(--gold-bright);letter-spacing:2px;">UAV/DRONE OPERATIONS IMAGE FEED</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+              <div style="display:flex;align-items:center;gap:5px;background:rgba(255,59,59,0.07);border:1px solid rgba(255,59,59,0.25);border-radius:3px;padding:5px 11px;">
+                <div class="pulse-dot red"></div>
+                <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--red-alert);">LIVE FEED</span>
+              </div>
+              <div id="uav-last-updated" style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--text-muted);background:var(--dark-panel);border:1px solid var(--dark-border);padding:4px 10px;border-radius:3px;">LOADING...</div>
+            </div>
+          </div>
+
+          <!-- Stat row -->
+          <div class="uav-stats-row" id="uav-stats-row">
+            <div class="uav-stat"><div class="uav-stat-num" id="uav-stat-total" style="color:var(--gold);">—</div><div class="uav-stat-lbl">Total Images</div></div>
+            <div class="uav-stat"><div class="uav-stat-num" id="uav-stat-active" style="color:var(--red-alert);">—</div><div class="uav-stat-lbl">Active Missions</div></div>
+            <div class="uav-stat"><div class="uav-stat-num" id="uav-stat-regions" style="color:var(--blue-info);">—</div><div class="uav-stat-lbl">Regions</div></div>
+            <div class="uav-stat"><div class="uav-stat-num" id="uav-stat-sorties" style="color:var(--teal-water);">—</div><div class="uav-stat-lbl">Sorties Flown</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active missions strip -->
+      <div class="firms-panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+          <div class="intel-card-title" style="margin-bottom:0;">Active Drone Missions</div>
+          <button onclick="uavLoadMissions()" style="font-family:'Orbitron',monospace;font-size:8px;font-weight:700;padding:5px 12px;border-radius:3px;cursor:pointer;border:1px solid rgba(212,160,23,0.3);background:rgba(212,160,23,0.07);color:var(--gold);">⟳ REFRESH</button>
+        </div>
+        <div class="missions-strip" id="uav-missions-strip">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-muted);padding:14px;">Loading missions…</div>
+        </div>
+      </div>
+
+      <!-- Fetch status + filter bar -->
+      <div class="firms-panel">
+        <div id="uav-feed-status" class="fetch-status loading">
+          <div class="pulse-dot gold"></div>
+          <span id="uav-status-text">Connecting to NAIMOS drone image feed…</span>
+        </div>
+
+        <div class="uav-filter-bar" id="uav-filter-bar">
+          <button class="uav-filter-btn active" data-mission="all" onclick="uavFilterMission('all')">ALL MISSIONS</button>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          <div style="font-family:'Orbitron',monospace;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:2px;">LIVE IMAGE FEED</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <span id="uav-auto-refresh-ctr" style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-muted);"></span>
+            <button onclick="uavLoadFeed(true)" style="font-family:'Orbitron',monospace;font-size:8px;font-weight:700;padding:5px 12px;border-radius:3px;cursor:pointer;border:1px solid rgba(0,255,136,0.3);background:rgba(0,255,136,0.07);color:var(--green-safe);letter-spacing:1px;">⟳ REFRESH FEED</button>
+            <a href="${_getPatchDronePlatformURL()}" target="_blank" style="font-family:'Orbitron',monospace;font-size:8px;font-weight:700;padding:5px 12px;border-radius:3px;cursor:pointer;border:1px solid rgba(74,158,255,0.3);background:rgba(74,158,255,0.07);color:var(--blue-info);letter-spacing:1px;text-decoration:none;">🛸 OPEN DRONE PLATFORM</a>
+          </div>
+        </div>
+
+        <!-- Image Grid -->
+        <div class="drone-grid" id="uav-image-grid">
+          <div style="grid-column:1/-1;text-align:center;padding:40px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-muted);">Initialising drone feed…</div>
+        </div>
+
+        <!-- Pagination -->
+        <div style="display:flex;justify-content:center;gap:8px;margin-top:14px;" id="uav-pagination"></div>
+      </div>
+
+      <!-- Quick Upload Panel -->
+      <div class="firms-panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div class="intel-card-title" style="margin-bottom:0;">📤 Quick Upload Drone Images</div>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-muted);">For full upload portal → <a href="${_getPatchDronePlatformURL()}" target="_blank" style="color:var(--gold);">Drone Platform</a></span>
+        </div>
+
+        <div id="uav-upload-status"></div>
+
+        <div class="uav-upload-zone" id="uav-upload-zone">
+          <input type="file" id="uav-file-input" accept="image/*" multiple onchange="uavHandleFiles(event)">
+          <div style="font-size:28px;margin-bottom:8px;">📸</div>
+          <div style="font-family:'Orbitron',monospace;font-size:10px;color:var(--gold);letter-spacing:2px;margin-bottom:5px;">DROP IMAGES OR CLICK TO SELECT</div>
+          <div style="font-size:11px;color:var(--text-secondary);">Images upload directly to the live feed above</div>
+        </div>
+
+        <div id="uav-upload-form" style="display:none;margin-top:12px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;" id="uav-quick-form-grid">
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <div style="font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1.5px;color:var(--text-muted);">REGION</div>
+              <select id="uav-region" style="background:var(--dark-panel);border:1px solid var(--dark-border-light);color:var(--text-primary);font-family:'Rajdhani',sans-serif;font-size:12px;padding:7px 10px;border-radius:3px;outline:none;width:100%;">
+                <option>Western Region</option><option>Ashanti Region</option><option>Eastern Region</option>
+                <option>Central Region</option><option>Northern Region</option><option>Upper West Region</option>
+                <option>Upper East Region</option><option>Volta Region</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <div style="font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1.5px;color:var(--text-muted);">OPERATOR ID</div>
+              <input id="uav-operator" type="text" placeholder="e.g. UAV-TEAM-ALPHA" style="background:var(--dark-panel);border:1px solid var(--dark-border-light);color:var(--text-primary);font-family:'Share Tech Mono',monospace;font-size:10px;padding:7px 10px;border-radius:3px;outline:none;width:100%;">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <div style="font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1.5px;color:var(--text-muted);">API SECRET</div>
+              <input id="uav-secret" type="password" placeholder="DRONE_API_SECRET" style="background:var(--dark-panel);border:1px solid var(--dark-border-light);color:var(--text-primary);font-family:'Share Tech Mono',monospace;font-size:10px;padding:7px 10px;border-radius:3px;outline:none;width:100%;">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <div style="font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1.5px;color:var(--text-muted);">ANALYSIS NOTES</div>
+              <input id="uav-notes" type="text" placeholder="Brief description of what is visible…" style="background:var(--dark-panel);border:1px solid var(--dark-border-light);color:var(--text-primary);font-family:'Rajdhani',sans-serif;font-size:11px;padding:7px 10px;border-radius:3px;outline:none;width:100%;">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button onclick="uavCancelUpload()" style="font-family:'Orbitron',monospace;font-size:8px;padding:7px 14px;border-radius:3px;cursor:pointer;border:1px solid var(--dark-border-light);background:transparent;color:var(--text-secondary);">CANCEL</button>
+            <button onclick="uavSubmitUpload()" style="font-family:'Orbitron',monospace;font-size:8px;font-weight:700;padding:7px 16px;border-radius:3px;cursor:pointer;border:none;background:linear-gradient(135deg,var(--gold-dim),#5C4008);color:var(--gold-bright);">⬆ UPLOAD TO FEED</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- UAV IMAGE LIGHTBOX -->
+    <div class="uav-lightbox" id="uav-lightbox">
+      <div class="uav-lightbox-panel">
+        <div class="uav-lb-header">
+          <div>
+            <div style="font-family:'Orbitron',monospace;font-size:8.5px;color:var(--text-muted);letter-spacing:2px;margin-bottom:3px;">NAIMOS UAV IMAGE</div>
+            <div id="uav-lb-title" style="font-family:'Orbitron',monospace;font-size:12px;color:var(--gold);letter-spacing:1.5px;">—</div>
+          </div>
+          <button class="uav-lb-close" onclick="uavCloseLightbox()">✕</button>
+        </div>
+        <div class="uav-lb-body">
+          <div class="uav-lb-img-wrap">
+            <img id="uav-lb-img" src="" alt="Drone Image" style="max-width:100%;max-height:55vh;object-fit:contain;">
+          </div>
+          <div class="uav-lb-meta">
+            <div class="uav-lb-meta-item"><div class="uav-lb-key">MISSION</div><div class="uav-lb-val" id="uav-lb-mission">—</div></div>
+            <div class="uav-lb-meta-item"><div class="uav-lb-key">REGION</div><div class="uav-lb-val" id="uav-lb-region">—</div></div>
+            <div class="uav-lb-meta-item"><div class="uav-lb-key">OPERATOR</div><div class="uav-lb-val" id="uav-lb-operator">—</div></div>
+            <div class="uav-lb-meta-item"><div class="uav-lb-key">ALTITUDE</div><div class="uav-lb-val" id="uav-lb-alt">—</div></div>
+            <div class="uav-lb-meta-item"><div class="uav-lb-key">COORDINATES</div><div class="uav-lb-val" id="uav-lb-coords">—</div></div>
+            <div class="uav-lb-meta-item"><div class="uav-lb-key">CAPTURED</div><div class="uav-lb-val" id="uav-lb-captured">—</div></div>
+          </div>
+          <div class="uav-lb-notes" id="uav-lb-notes" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+    `;
+  }
+
+  // ── UAV Tab Logic ──────────────────────────────────────────────────────────
+  let _uavImages   = [];
+  let _uavMissions = [];
+  let _uavActiveMission = 'all';
+  let _uavPage = 1;
+  let _uavRefreshTimer = null;
+  let _uavCountdown = 30;
+  let _uavInitDone = false;
+  let _uavPendingFiles = [];
+
+  function _uavTabInit() {
+    if (_uavInitDone) {
+      uavLoadFeed();
+      return;
+    }
+    _uavInitDone = true;
+    uavLoadAll();
+
+    // Close lightbox on ESC
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') uavCloseLightbox();
+    });
+    document.getElementById('uav-lightbox')?.addEventListener('click', e => {
+      if (e.target === document.getElementById('uav-lightbox')) uavCloseLightbox();
+    });
+  }
+
+  window.uavLoadAll = async function() {
+    await Promise.all([uavLoadStats(), uavLoadMissions()]);
+    await uavLoadFeed();
+    _uavStartCountdown();
+  };
+
+  window.uavLoadStats = async function() {
+    try {
+      const data = await _uavApiFetch('/drones/stats');
+      const set = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+      set('uav-stat-total',  data.totalImages || '—');
+      set('uav-stat-active', data.activeMissions || '—');
+      set('uav-stat-regions', (data.regionsActive||[]).length || '—');
+      // Sorties from naimos stats
+      try {
+        const ns = await _uavApiFetch('/naimos/stats');
+        set('uav-stat-sorties', ns.uavSortiesFlown || '—');
+      } catch {}
+    } catch {}
+  };
+
+  window.uavLoadMissions = async function() {
+    try {
+      const data = await _uavApiFetch('/drones/missions');
+      _uavMissions = data.missions || [];
+      _uavRenderMissions();
+      _uavBuildFilterTabs();
+    } catch(e) {
+      const strip = document.getElementById('uav-missions-strip');
+      if (strip) strip.innerHTML = '<div style="font-family:\'Share Tech Mono\',monospace;font-size:10px;color:var(--red-alert);padding:8px;">Failed to load missions</div>';
+    }
+  };
+
+  function _uavRenderMissions() {
+    const strip = document.getElementById('uav-missions-strip');
+    if (!strip) return;
+    if (!_uavMissions.length) {
+      strip.innerHTML = '<div style="font-family:\'Share Tech Mono\',monospace;font-size:10px;color:var(--text-muted);padding:14px;">No missions</div>';
+      return;
+    }
+    strip.innerHTML = _uavMissions.map(m => `
+      <div class="mission-strip-card ${m.status}" onclick="uavFilterMission('${m.id}')">
+        <div class="mission-strip-id">${m.id}</div>
+        <div class="mission-strip-name">${m.name}</div>
+        <div class="mission-strip-sub">${m.region} · ${m.imageCount} imgs · ${m.status.toUpperCase()}</div>
+      </div>
+    `).join('');
+  }
+
+  function _uavBuildFilterTabs() {
+    const bar = document.getElementById('uav-filter-bar');
+    if (!bar) return;
+    const existing = bar.querySelector('[data-mission="all"]');
+    [...bar.querySelectorAll('.uav-filter-btn:not([data-mission="all"])')].forEach(e=>e.remove());
+    _uavMissions.forEach(m => {
+      const btn = document.createElement('button');
+      btn.className = 'uav-filter-btn';
+      btn.dataset.mission = m.id;
+      btn.textContent = m.name.slice(0,22) + (m.name.length>22?'…':'');
+      btn.onclick = () => uavFilterMission(m.id);
+      bar.appendChild(btn);
+    });
+  }
+
+  window.uavFilterMission = function(id) {
+    _uavActiveMission = id;
+    _uavPage = 1;
+    document.querySelectorAll('.uav-filter-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.mission === id));
+    uavLoadFeed();
+  };
+
+  window.uavLoadFeed = async function(forceRefresh=false) {
+    const statusEl  = document.getElementById('uav-feed-status');
+    const statusTxt = document.getElementById('uav-status-text');
+    if (statusEl)  statusEl.className = 'fetch-status loading';
+    if (statusTxt) statusTxt.textContent = 'Fetching latest drone images from NAIMOS feed…';
+
+    try {
+      const params = new URLSearchParams({ page: _uavPage, limit: 20 });
+      if (_uavActiveMission !== 'all') params.set('mission', _uavActiveMission);
+      const data = await _uavApiFetch('/drones/feed?' + params.toString());
+
+      _uavImages = data.images || [];
+      _uavRenderGrid();
+
+      const lastUpdEl = document.getElementById('uav-last-updated');
+      if (lastUpdEl) lastUpdEl.textContent = '✓ UPDATED ' + new Date().toUTCString().slice(17,25) + ' UTC';
+
+      if (statusEl)  statusEl.className = 'fetch-status success';
+      if (statusTxt) statusTxt.textContent = `✓ ${data.total || _uavImages.length} images loaded · Page ${data.page||1}/${data.pages||1} · ${new Date().toUTCString().slice(17,25)} UTC`;
+
+      _uavRenderPagination(data.page||1, data.pages||1);
+
+    } catch(err) {
+      if (statusEl)  statusEl.className = 'fetch-status error';
+      if (statusTxt) statusTxt.textContent = '✗ Backend unreachable — ' + err.message + '. Check NAIMOS backend is running.';
+      // Show fallback placeholder images
+      _uavImages = _uavGetFallbackImages();
+      _uavRenderGrid();
+    }
+  };
+
+  function _uavRenderGrid() {
+    const grid = document.getElementById('uav-image-grid');
+    if (!grid) return;
+
+    if (!_uavImages.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px;font-family:\'Share Tech Mono\',monospace;font-size:11px;color:var(--text-muted);">No images found for selected filter.</div>';
+      return;
+    }
+
+    const now = Date.now();
+    grid.innerHTML = _uavImages.map(img => {
+      const ageMs = now - new Date(img.uploadedAt||img.capturedAt).getTime();
+      const isNew = ageMs < 2*3600*1000;
+      const tags = (img.tags||[]).slice(0,3).map(t => {
+        const cls = t.includes('water')?'water':t.includes('thermal')||t.includes('fire')?'fire':t.includes('forest')?'forest':'other';
+        return `<span class="drone-tag ${cls}">${t}</span>`;
+      }).join('');
+
+      const imgJson = JSON.stringify(img).replace(/"/g,'&quot;');
+
+      return `
+        <div class="drone-img-card" onclick='uavOpenLightbox(${imgJson})'>
+          ${isNew ? '<div class="drone-new-badge">NEW</div>' : ''}
+          <img src="${img.thumbnailUrl||img.url}" alt="${img.filename||'Drone Image'}"
+            onerror="this.style.display='none';this.nextSibling.style.display='flex';"
+            loading="lazy">
+          <div class="card-placeholder" style="display:none;">🛸</div>
+          <div class="drone-img-meta">
+            <div class="drone-img-mission">${img.missionId||'NAIMOS-UAV'}</div>
+            <div class="drone-img-region">${img.region||'Ghana'}</div>
+            <div class="drone-img-time">${new Date(img.capturedAt||img.uploadedAt).toUTCString().slice(0,22)}</div>
+            ${tags ? `<div class="drone-img-tags">${tags}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function _uavRenderPagination(page, pages) {
+    const bar = document.getElementById('uav-pagination');
+    if (!bar) return;
+    if (pages <= 1) { bar.innerHTML = ''; return; }
+    bar.innerHTML = `
+      <button onclick="_uavPage=${Math.max(1,_uavPage-1)};uavLoadFeed()" style="font-family:'Orbitron',monospace;font-size:8px;padding:5px 12px;border-radius:3px;cursor:pointer;border:1px solid var(--dark-border-light);background:transparent;color:var(--text-secondary);" ${page<=1?'disabled':''}>◀ PREV</button>
+      <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-muted);padding:0 8px;display:flex;align-items:center;">${page} / ${pages}</span>
+      <button onclick="_uavPage=${Math.min(pages,_uavPage+1)};uavLoadFeed()" style="font-family:'Orbitron',monospace;font-size:8px;padding:5px 12px;border-radius:3px;cursor:pointer;border:1px solid var(--dark-border-light);background:transparent;color:var(--text-secondary);" ${page>=pages?'disabled':''}>NEXT ▶</button>
+    `;
+  }
+
+  window.uavOpenLightbox = function(img) {
+    if (typeof img === 'string') { try { img = JSON.parse(img); } catch {} }
+    const set = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+    set('uav-lb-title',    img.filename||'Drone Image');
+    set('uav-lb-mission',  img.missionName||img.missionId||'—');
+    set('uav-lb-region',   img.region||'—');
+    set('uav-lb-operator', img.operator||'—');
+    set('uav-lb-alt',      img.altitudeM ? img.altitudeM + ' m' : '—');
+    set('uav-lb-coords',   img.coordinates ?
+      `${img.coordinates.lat.toFixed(4)}°N · ${Math.abs(img.coordinates.lon).toFixed(4)}°W` : '—');
+    set('uav-lb-captured', new Date(img.capturedAt||img.uploadedAt).toUTCString().slice(0,25));
+
+    const lbImg = document.getElementById('uav-lb-img');
+    if (lbImg) lbImg.src = img.url||img.thumbnailUrl||'';
+
+    const notesEl = document.getElementById('uav-lb-notes');
+    if (notesEl) {
+      if (img.analysisNotes) {
+        notesEl.style.display = 'block';
+        notesEl.innerHTML = `<div style="font-family:'Orbitron',monospace;font-size:8px;color:var(--text-muted);letter-spacing:1.5px;margin-bottom:5px;">ANALYSIS NOTES</div><div style="font-size:12px;color:var(--text-secondary);line-height:1.6;">${img.analysisNotes}</div>`;
+      } else {
+        notesEl.style.display = 'none';
+      }
+    }
+
+    const lb = document.getElementById('uav-lightbox');
+    if (lb) { lb.classList.add('active'); document.body.style.overflow = 'hidden'; }
+  };
+
+  window.uavCloseLightbox = function() {
+    const lb = document.getElementById('uav-lightbox');
+    if (lb) { lb.classList.remove('active'); document.body.style.overflow = ''; }
+  };
+
+  // Upload handlers
+  let _uavPendingFilesLocal = [];
+  window.uavHandleFiles = function(e) {
+    _uavPendingFilesLocal = [...e.target.files];
+    if (!_uavPendingFilesLocal.length) return;
+    document.getElementById('uav-upload-form').style.display = 'block';
+  };
+
+  window.uavCancelUpload = function() {
+    _uavPendingFilesLocal = [];
+    document.getElementById('uav-upload-form').style.display = 'none';
+    document.getElementById('uav-file-input').value = '';
+    document.getElementById('uav-upload-status').innerHTML = '';
+  };
+
+  window.uavSubmitUpload = async function() {
+    if (!_uavPendingFilesLocal.length) return;
+    const secret   = document.getElementById('uav-secret')?.value.trim() || '';
+    const region   = document.getElementById('uav-region')?.value || 'Ghana';
+    const operator = document.getElementById('uav-operator')?.value.trim() || 'NAIMOS-OPS';
+    const notes    = document.getElementById('uav-notes')?.value.trim() || '';
+    const statusEl = document.getElementById('uav-upload-status');
+    statusEl.innerHTML = `<div class="fetch-status loading"><div class="pulse-dot gold"></div><span>Uploading ${_uavPendingFilesLocal.length} image(s)…</span></div>`;
+
+    let ok = 0, fail = 0;
+    const API = _getPatchAPIBase();
+
+    for (const file of _uavPendingFilesLocal) {
+      try {
+        const b64 = await new Promise((res,rej) => {
+          const r = new FileReader();
+          r.onload = ev => res(ev.target.result);
+          r.onerror = rej;
+          r.readAsDataURL(file);
+        });
+        const payload = {
+          filename: file.name, url: b64, thumbnailUrl: b64, imageDataUrl: b64,
+          missionId: 'NAIMOS-UAV-MANUAL', missionName: 'Manual Upload',
+          operator, region, capturedAt: new Date().toISOString(),
+          filesize: file.size, analysisNotes: notes,
+          tags: notes ? notes.toLowerCase().split(',').map(t=>t.trim()).filter(Boolean) : [],
+        };
+        const res = await fetch(`${API}/drones/upload`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-drone-secret': secret },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) ok++;
+        else fail++;
+      } catch { fail++; }
+    }
+
+    if (ok > 0) {
+      statusEl.innerHTML = `<div class="fetch-status success"><div class="pulse-dot green"></div><span>✓ ${ok} image(s) uploaded · Refreshing feed…</span></div>`;
+      uavCancelUpload();
+      setTimeout(() => { uavLoadFeed(true); uavLoadStats(); }, 1000);
+    } else {
+      statusEl.innerHTML = `<div class="fetch-status error"><div class="pulse-dot red"></div><span>✗ Upload failed. Check secret key and backend.</span></div>`;
+    }
+  };
+
+  // Drag & drop on UAV upload zone
+  setTimeout(() => {
+    const zone = document.getElementById('uav-upload-zone');
+    if (!zone) return;
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault(); zone.classList.remove('drag-over');
+      const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+      if (files.length) uavHandleFiles({ target: { files } });
+    });
+  }, 1000);
+
+  function _uavStartCountdown() {
+    _uavCountdown = 30;
+    clearInterval(_uavRefreshTimer);
+    _uavRefreshTimer = setInterval(() => {
+      _uavCountdown--;
+      const el = document.getElementById('uav-auto-refresh-ctr');
+      if (el) el.textContent = `Auto-refresh in ${_uavCountdown}s`;
+      if (_uavCountdown <= 0) {
+        uavLoadFeed();
+        uavLoadStats();
+        _uavCountdown = 30;
+      }
+    }, 1000);
+  }
+
+  function _uavGetFallbackImages() {
+    return [
+      { id:'f1', filename:'aerial_galamsey_western.jpg',
+        url:'https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=600&auto=format',
+        thumbnailUrl:'https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=300&auto=format',
+        missionId:'NAIMOS-UAV-WR-001', missionName:'Western Region Sweep Alpha',
+        operator:'UAV-TEAM-ALPHA', region:'Western Region',
+        capturedAt:new Date(Date.now()-3600*1000).toISOString(),
+        uploadedAt:new Date(Date.now()-3600*1000).toISOString(),
+        tags:['galamsey-site','active-excavation'], analysisNotes:'Active excavation site confirmed.'
+      },
+      { id:'f2', filename:'thermal_scan_obuasi.jpg',
+        url:'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&auto=format',
+        thumbnailUrl:'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&auto=format',
+        missionId:'NAIMOS-UAV-AS-002', missionName:'Ashanti Sector Beta Recon',
+        operator:'UAV-TEAM-BRAVO', region:'Ashanti Region',
+        capturedAt:new Date(Date.now()-5*3600*1000).toISOString(),
+        uploadedAt:new Date(Date.now()-5*3600*1000).toISOString(),
+        tags:['thermal-anomaly','night-operation'], analysisNotes:'Thermal hotspot FRP ~3.2 MW.'
+      },
+      { id:'f3', filename:'pra_river_contamination.jpg',
+        url:'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&auto=format',
+        thumbnailUrl:'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&auto=format',
+        missionId:'NAIMOS-UAV-WR-001', missionName:'Western Region Sweep Alpha',
+        operator:'UAV-TEAM-ALPHA', region:'Western Region',
+        capturedAt:new Date(Date.now()-8*3600*1000).toISOString(),
+        uploadedAt:new Date(Date.now()-8*3600*1000).toISOString(),
+        tags:['water','pra-river','mercury-risk'], analysisNotes:'River turbidity elevated.'
+      },
+      { id:'f4', filename:'forest_boundary_patrol.jpg',
+        url:'https://images.unsplash.com/photo-1448375240586-882707db888b?w=600&auto=format',
+        thumbnailUrl:'https://images.unsplash.com/photo-1448375240586-882707db888b?w=300&auto=format',
+        missionId:'NAIMOS-UAV-ER-004', missionName:'Atewa Forest Boundary Patrol',
+        operator:'UAV-TEAM-DELTA', region:'Eastern Region',
+        capturedAt:new Date(Date.now()-24*3600*1000).toISOString(),
+        uploadedAt:new Date(Date.now()-24*3600*1000).toISOString(),
+        tags:['forest-reserve','boundary-patrol'], analysisNotes:'NDVI decline in NW quadrant.'
+      },
+      { id:'f5', filename:'equipment_seizure.jpg',
+        url:'https://images.unsplash.com/photo-1581093450021-4a7360e9a6b5?w=600&auto=format',
+        thumbnailUrl:'https://images.unsplash.com/photo-1581093450021-4a7360e9a6b5?w=300&auto=format',
+        missionId:'NAIMOS-UAV-WR-003', missionName:'Prestea Equipment Survey',
+        operator:'UAV-TEAM-CHARLIE', region:'Western Region',
+        capturedAt:new Date(Date.now()-12*3600*1000).toISOString(),
+        uploadedAt:new Date(Date.now()-12*3600*1000).toISOString(),
+        tags:['equipment-seizure','raid-aftermath'], analysisNotes:'4 excavators immobilised.'
+      },
+      { id:'f6', filename:'water_survey_central.jpg',
+        url:'https://images.unsplash.com/photo-1439405326854-014607f694d7?w=600&auto=format',
+        thumbnailUrl:'https://images.unsplash.com/photo-1439405326854-014607f694d7?w=300&auto=format',
+        missionId:'NAIMOS-UAV-CR-005', missionName:'Central Region Water Survey',
+        operator:'UAV-TEAM-ECHO', region:'Central Region',
+        capturedAt:new Date(Date.now()-36*3600*1000).toISOString(),
+        uploadedAt:new Date(Date.now()-36*3600*1000).toISOString(),
+        tags:['water','mercury-risk'], analysisNotes:'Water turbidity mapping in progress.'
+      },
+    ];
+  }
+
+  // ── Shared helpers ─────────────────────────────────────────────────────────
+  function _getPatchAPIBase() {
+    if (typeof API_BASE !== 'undefined') return API_BASE;
+    if (location.hostname.includes('vercel.app') || location.hostname.includes('naimos')) {
+      return location.origin + '/api';
+    }
+    return 'http://localhost:3001/api';
+  }
+
+  function _getPatchDronePlatformURL() {
+    return typeof DRONE_PLATFORM_URL !== 'undefined'
+      ? DRONE_PLATFORM_URL
+      : 'https://naimos-drones.vercel.app';
+  }
+
+  async function _uavApiFetch(path) {
+    const base = _getPatchAPIBase();
+    const res = await fetch(base + path, {
+      signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+
+
+  // ── INIT — run all patches ─────────────────────────────────────────────────
+  function init() {
+    patchFirmsTab();
+    patchHighRiskRegions();
+    injectUAVTab();
+    patchTableScrolling();
+
+    // Fetch ops stats after a short delay (ensure DOM is stable)
+    setTimeout(patchOpsCards, 3000);
+
+    // Also fetch ops stats when ops tab is opened
+    const _sw = window.switchTab;
+    if (typeof _sw === 'function') {
+      window.switchTab = function(tab) {
+        _sw.apply(this, arguments);
+        if (tab === 'ops') setTimeout(patchOpsCards, 200);
+        if (tab === 'firms') setTimeout(_patchedFetchFIRMS, 200);
+      };
+    }
+
+    console.log('%c NAIMOS PATCH v3 loaded ✓', 'background:#D4A017;color:#000;font-weight:bold;font-size:11px;padding:2px 8px;border-radius:3px;');
+  }
+
+  // Wait for DOM then init
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(init, 50);
+  } else {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(init, 50));
+  }
+
+})();
+</script>
 </body>
 </html>

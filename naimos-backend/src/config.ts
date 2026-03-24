@@ -28,6 +28,14 @@ export const config = {
   geePrivateKey: (process.env.GEE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
   geeProject:    process.env.GEE_PROJECT || 'projects/naimo-gee',
 
+  // ── Cloudinary (for uavs/drones images upload) ──────────────────────────
+  cloudinaryUrl: process.env.CLOUDINARY_URL || '',
+  cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+  cloudinaryApikey: process.env.CLOUDINARY_API_KEY || '',
+  cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET || '',
+  cloudinaryDroneFolder: process.env.CLOUDINARY_DRONE_FOLDER || '',
+
+
   // ── Microsoft Planetary Computer (no auth needed) ─────────────────────────
   pcStacUrl:  'https://planetarycomputer.microsoft.com/api/stac/v1',
   pcTokenUrl: 'https://planetarycomputer.microsoft.com/api/sas/v1/token',
