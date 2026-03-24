@@ -9037,37 +9037,94 @@ function classifyRegion(lat, lon) {
   return 'Other/Ghana';
 }
 
-// FRP-based risk classification for galamsey
 function galamseyRisk(frp, daynight, brightness) {
-  if (frp >= 10)  return { label: 'CRITICAL',   color: 'var(--red-alert)',   badge: 'critical' };
-  if (frp >= 4)   return { label: 'HIGH',        color: 'var(--red-alert)',   badge: 'critical' };
-  if (frp >= 2)   return { label: 'MODERATE',    color: 'var(--orange-warn)', badge: 'warning'  };
-  if (daynight === 'D' && frp >= 0.5) return { label: 'LOW-D', color: 'var(--gold)', badge: 'delayed' };
+  // Make sure frp is a number
+  const frpNum = parseFloat(frp) || 0;
+  
+  if (frpNum >= 10) {
+    return { label: 'CRITICAL', color: 'var(--red-alert)', badge: 'critical' };
+  }
+  if (frpNum >= 4) {
+    return { label: 'HIGH', color: 'var(--red-alert)', badge: 'critical' };
+  }
+  if (frpNum >= 2) {
+    return { label: 'MODERATE', color: 'var(--orange-warn)', badge: 'warning' };
+  }
+  if (daynight === 'D' && frpNum >= 0.5) {
+    return { label: 'LOW-D', color: 'var(--gold)', badge: 'delayed' };
+  }
   return { label: 'MONITOR', color: 'var(--blue-info)', badge: 'predicted' };
 }
 
 function parseCSV(csvText) {
-  const lines = csvText.trim().split('\n').filter(l => l.trim());
+  // Remove BOM if present
+  const cleanText = csvText.replace(/^\uFEFF/, '');
+  
+  const lines = cleanText.trim().split('\n').filter(l => l.trim());
   if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map(h => h.trim());
+  
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
+  
   return lines.slice(1).map((line, idx) => {
-    const vals = line.split(',');
+    // Handle quoted fields properly
+    const vals = [];
+    let inQuote = false;
+    let current = '';
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        inQuote = !inQuote;
+      } else if (char === ',' && !inQuote) {
+        vals.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    vals.push(current.trim());
+    
     const obj = {};
-    headers.forEach((h, i) => obj[h] = vals[i] ? vals[i].trim() : '');
-    return {
+    headers.forEach((h, i) => {
+      if (vals[i]) {
+        obj[h] = vals[i].replace(/^["']|["']$/g, '');
+      }
+    });
+    
+    // Parse values
+    const lat = parseFloat(obj.latitude);
+    const lon = parseFloat(obj.longitude);
+    const frp = parseFloat(obj.frp) || 0;
+    const brightness = parseFloat(obj.bright_ti4 || obj.brightness || 0);
+    const daynight = obj.daynight || '?';
+    const confidence = obj.confidence || '?';
+    
+    // Create the hotspot object
+    const hotspot = {
       idx: idx + 1,
-      lat: parseFloat(obj.latitude),
-      lon: parseFloat(obj.longitude),
-      brightness: parseFloat(obj.bright_ti4 || obj.brightness),
-      frp: parseFloat(obj.frp),
+      lat: lat,
+      lon: lon,
+      brightness: brightness,
+      frp: frp,
       date: obj.acq_date,
       time: obj.acq_time ? obj.acq_time.padStart(4,'0').replace(/(\d{2})(\d{2})/, '$1:$2') : '—',
-      daynight: obj.daynight || '?',
-      confidence: obj.confidence || '?',
+      daynight: daynight,
+      confidence: confidence,
       satellite: obj.satellite || 'N',
       raw: obj
     };
-  }).filter(r => !isNaN(r.lat) && !isNaN(r.lon) && !isNaN(r.frp));
+    
+    // Add region and risk (if lat/lon are valid)
+    if (!isNaN(lat) && !isNaN(lon)) {
+      hotspot.region = classifyRegion(lat, lon);
+      hotspot.risk = galamseyRisk(frp, daynight, brightness);
+    } else {
+      hotspot.region = 'Unknown';
+      hotspot.risk = { label: 'UNKNOWN', color: 'var(--text-muted)', badge: 'pending' };
+    }
+    
+    return hotspot;
+  }).filter(r => !isNaN(r.lat) && !isNaN(r.lon));
 }
 
 // ===== PRODUCTION CORS PROXY SYSTEM =====
@@ -9075,41 +9132,77 @@ function parseCSV(csvText) {
 // Multiple proxy fallbacks for production reliability
 
 const CORS_PROXIES = [
-  // allorigins.win — most reliable, wraps response in JSON
-  { name: 'allorigins', wrap: url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, extract: d => d.contents },
-  // corsproxy.io — direct passthrough
-  { name: 'corsproxy.io', wrap: url => `https://corsproxy.io/?${encodeURIComponent(url)}`, extract: d => d },
+  // allorigins.win — wraps CSV in JSON with contents property
+  { 
+    name: 'allorigins', 
+    wrap: url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+    extract: d => d.contents 
+  },
+  // corsproxy.io — direct passthrough, returns CSV as text
+  { 
+    name: 'corsproxy.io', 
+    wrap: url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    extract: d => d 
+  },
   // thingproxy — backup
-  { name: 'thingproxy', wrap: url => `https://thingproxy.freeboard.io/fetch/${url}`, extract: d => d },
+  { 
+    name: 'thingproxy', 
+    wrap: url => `https://thingproxy.freeboard.io/fetch/${url}`,
+    extract: d => d 
+  },
 ];
 
 async function fetchWithCORSProxy(targetUrl) {
   let lastError = null;
+  
   for (const proxy of CORS_PROXIES) {
     try {
       const proxyUrl = proxy.wrap(targetUrl);
       const resp = await fetch(proxyUrl, { signal: makeAbortSignal(12000) });
+      
       if (!resp.ok) continue;
-      const data = await resp.json().catch(() => null) || await resp.text().catch(() => null);
-      if (!data) continue;
-      // Extract actual content
-      const content = typeof proxy.extract === 'function' ? proxy.extract(data) : data;
-      if (content && typeof content === 'string' && content.length > 20) {
+      
+      // Get the raw text first - don't assume JSON
+      const rawText = await resp.text();
+      
+      if (!rawText || rawText.length < 20) continue;
+      
+      // Try to extract the actual content based on proxy type
+      let content = rawText;
+      
+      if (proxy.name === 'allorigins') {
+        // allorigins wraps CSV in JSON with .contents
+        try {
+          const jsonData = JSON.parse(rawText);
+          content = jsonData.contents || jsonData;
+        } catch (e) {
+          // Not JSON, keep as is
+        }
+      }
+      
+      // Check if content looks like CSV (starts with latitude or has commas)
+      if (content.includes('latitude') || content.includes(',')) {
         console.log(`✓ CORS proxy success: ${proxy.name}`);
         return content;
       }
+      
     } catch (e) {
       lastError = e;
       console.warn(`CORS proxy ${proxy.name} failed:`, e.message);
     }
   }
+  
   // Final fallback: direct fetch (works if server has CORS headers)
   try {
     const resp = await fetch(targetUrl, { signal: makeAbortSignal(10000) });
-    if (resp.ok) return await resp.text();
+    if (resp.ok) {
+      const text = await resp.text();
+      if (text.includes('latitude')) return text;
+    }
   } catch (e) {
     lastError = e;
   }
+  
   throw new Error(`All proxies failed. Last error: ${lastError?.message || 'Unknown'}`);
 }
 
@@ -9230,6 +9323,10 @@ function renderFIRMSTable(data) {
                     : r.confidence + '%';
     const confColor = r.confidence === 'h' ? 'var(--red-alert)' : r.confidence === 'n' ? 'var(--orange-warn)' : 'var(--text-secondary)';
 
+    // Safe access to risk.badge - provide fallback if risk is undefined
+    const riskBadge = r.risk?.badge || 'pending';
+    const riskLabel = r.risk?.label || 'MONITOR';
+
     return `<tr>
       <td style="font-family:monospace;color:var(--text-muted);font-size:10px;">${i+1}</td>
       <td style="font-family:'Share Tech Mono',monospace;font-size:10.5px;color:var(--gold);">${r.lat.toFixed(5)}</td>
@@ -9241,7 +9338,7 @@ function renderFIRMSTable(data) {
       <td>${dnLabel}</td>
       <td style="font-family:monospace;font-size:10px;color:${confColor};">${confLabel}</td>
       <td style="font-size:11px;font-weight:600;color:${r.region === 'Western' || r.region === 'Ashanti' ? 'var(--orange-warn)' : 'var(--text-secondary)'};">${r.region}</td>
-      <td><span class="status-badge ${r.risk.badge}">${r.risk.label}</span></td>
+      <td><span class="status-badge ${riskBadge}">${riskLabel}</span></td>
     </tr>`;
   }).join('');
 }
@@ -11309,69 +11406,86 @@ document.getElementById('ops-assign-modal')?.addEventListener('click', e => {
 
   // Patched FIRMS fetch: reads key from backend (ignores removed input)
   async function _patchedFetchFIRMS() {
-    const statusEl  = document.getElementById('firms-fetch-status');
-    const statusTxt = document.getElementById('firms-status-text');
-    if (statusTxt) statusTxt.textContent = '⟳ Fetching NASA FIRMS data via backend…';
-    if (statusEl)  statusEl.className = 'fetch-status loading';
+  const statusEl  = document.getElementById('firms-fetch-status');
+  const statusTxt = document.getElementById('firms-status-text');
+  if (statusTxt) statusTxt.textContent = '⟳ Fetching NASA FIRMS data via backend…';
+  if (statusEl)  statusEl.className = 'fetch-status loading';
 
-    const days   = document.getElementById('firms-days')?.value   || '2';
-    const sensor = document.getElementById('firms-sensor')?.value || 'VIIRS_SNPP_NRT';
+  const days   = document.getElementById('firms-days')?.value   || '2';
+  const sensor = document.getElementById('firms-sensor')?.value || 'VIIRS_SNPP_NRT';
 
-    try {
-      const API = _getPatchAPIBase();
-      const resp = await fetch(`${API}/firms?days=${days}&sensor=${encodeURIComponent(sensor)}`, {
-        signal: AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined
-      });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const data = await resp.json();
-
-      // The backend returns { data: [...], count, source, ... }
-      const rows = data.data || data.rows || data || [];
-      if (!Array.isArray(rows) || !rows.length) throw new Error('No data returned');
-
-      // Inject into window.firmsData so the rest of the app uses it
-      window.firmsData = rows;
-
-      // Update stats
-      _updateFIRMSStats(rows);
-
-      if (statusTxt) statusTxt.textContent = `✓ ${rows.length} hotspots loaded via backend · ${new Date().toUTCString().slice(17,25)} UTC`;
-      if (statusEl)  statusEl.className = 'fetch-status success';
-
-      // Trigger original rendering if available
-      if (typeof renderFIRMSTable === 'function') renderFIRMSTable(rows);
-      if (typeof renderFIRMSCharts === 'function') renderFIRMSCharts(rows);
-      if (typeof _updateFirmsBarChart === 'function') _updateFirmsBarChart(rows);
-      if (typeof _updateFirmsDNChart === 'function')  _updateFirmsDNChart(rows);
-
-    } catch(err) {
-      if (statusTxt) statusTxt.textContent = '✗ FIRMS fetch failed: ' + err.message + ' — check backend';
-      if (statusEl)  statusEl.className = 'fetch-status error';
-      console.warn('[NAIMOS PATCH] FIRMS fetch error:', err);
+  try {
+    const API = _getPatchAPIBase();
+    // Use your backend endpoint instead of direct proxy
+    const resp = await fetch(`${API}/firms?days=${days}&sensor=${encodeURIComponent(sensor)}`, {
+      signal: AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined
+    });
+    
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    
+    // Backend returns CSV directly
+    const csvText = await resp.text();
+    
+    if (!csvText || csvText.includes('Invalid') || csvText.startsWith('<!')) {
+      throw new Error('Invalid response from backend');
     }
+
+    const rows = parseCSV(csvText);
+    if (!rows.length) throw new Error('No data returned');
+
+    // Inject into window.firmsData so the rest of the app uses it
+    window.firmsData = rows;
+    window.firmsRawData = rows;
+
+    // Update stats
+    _updateFIRMSStats(rows);
+
+    if (statusTxt) statusTxt.textContent = `✓ ${rows.length} hotspots loaded via backend · ${new Date().toUTCString().slice(17,25)} UTC`;
+    if (statusEl)  statusEl.className = 'fetch-status success';
+
+    // Trigger original rendering if available
+    if (typeof renderFIRMSTable === 'function') renderFIRMSTable(rows);
+    if (typeof renderFIRMSCharts === 'function') renderFIRMSCharts(rows);
+    if (typeof updateAnalyticsCharts === 'function') updateAnalyticsCharts(rows);
+    
+    // Dispatch event for other components
+    window.dispatchEvent(new CustomEvent('firms-data-loaded'));
+
+  } catch(err) {
+    if (statusTxt) statusTxt.textContent = '✗ FIRMS fetch failed: ' + err.message;
+    if (statusEl)  statusEl.className = 'fetch-status error';
+    console.warn('[NAIMOS PATCH] FIRMS fetch error:', err);
   }
+}
 
   function _updateFIRMSStats(rows) {
-    const total  = rows.length;
-    const high   = rows.filter(r => r.confidence === 'h' || parseFloat(r.confidence) >= 80).length;
-    const day    = rows.filter(r => (r.daynight||r.day_night||'') === 'D').length;
-    const night  = total - day;
-    const frps   = rows.map(r => parseFloat(r.frp||r.fire_radiative_power||0)).filter(v=>!isNaN(v));
-    const maxFrp = frps.length ? Math.max(...frps).toFixed(1) : '—';
-    const western = rows.filter(r => {
-      const lat = parseFloat(r.latitude||r.lat||0);
-      const lon = parseFloat(r.longitude||r.lon||0);
-      return lat >= 4.7 && lat <= 6.8 && lon >= -3.3 && lon <= -1.5;
-    }).length;
+  const total  = rows.length;
+  const high   = rows.filter(r => r.confidence === 'h' || parseFloat(r.confidence) >= 80).length;
+  const day    = rows.filter(r => (r.daynight || r.day_night || '') === 'D').length;
+  const night  = total - day;
+  const frps   = rows.map(r => parseFloat(r.frp || r.fire_radiative_power || 0)).filter(v => !isNaN(v));
+  const maxFrp = frps.length ? Math.max(...frps).toFixed(1) : '—';
+  
+  // Count Western region hotspots
+  const western = rows.filter(r => {
+    const lat = parseFloat(r.latitude || r.lat || 0);
+    const lon = parseFloat(r.longitude || r.lon || 0);
+    return lat >= 4.7 && lat <= 6.8 && lon >= -3.3 && lon <= -1.5;
+  }).length;
 
-    const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
-    set('firms-total', total);
-    set('firms-high', high);
-    set('firms-day', day);
-    set('firms-night', night);
-    set('firms-maxfrp', maxFrp);
-    set('firms-western', western);
-  }
+  // Update DOM elements safely
+  const setEl = (id, val) => { 
+    const el = document.getElementById(id); 
+    if (el) el.textContent = val; 
+  };
+  
+  setEl('firms-total', total);
+  setEl('firms-high', high);
+  setEl('firms-day', day);
+  setEl('firms-night', night);
+  setEl('firms-maxfrp', maxFrp);
+  setEl('firms-western', western);
+}
 
   // Override the original fetchFIRMSData to use backend (no MAP_KEY)
   window.fetchFIRMSData = function() { _patchedFetchFIRMS(); };
@@ -11871,7 +11985,7 @@ document.getElementById('ops-assign-modal')?.addEventListener('click', e => {
     try {
       const params = new URLSearchParams({ page: _uavPage, limit: 20 });
       if (_uavActiveMission !== 'all') params.set('mission', _uavActiveMission);
-      const data = await _uavApiFetch('/drones/feed?' + params.toString());
+      const data = await _uavApiFetch('/drones/latest?' + params.toString());
 
       _uavImages = data.images || [];
       _uavRenderGrid();
@@ -11992,50 +12106,48 @@ document.getElementById('ops-assign-modal')?.addEventListener('click', e => {
   };
 
   window.uavSubmitUpload = async function() {
-    if (!_uavPendingFilesLocal.length) return;
-    const secret   = document.getElementById('uav-secret')?.value.trim() || '';
-    const region   = document.getElementById('uav-region')?.value || 'Ghana';
-    const operator = document.getElementById('uav-operator')?.value.trim() || 'NAIMOS-OPS';
-    const notes    = document.getElementById('uav-notes')?.value.trim() || '';
-    const statusEl = document.getElementById('uav-upload-status');
-    statusEl.innerHTML = `<div class="fetch-status loading"><div class="pulse-dot gold"></div><span>Uploading ${_uavPendingFilesLocal.length} image(s)…</span></div>`;
+  if (!_uavPendingFilesLocal.length) return;
+  const secret   = document.getElementById('uav-secret')?.value.trim() || '';
+  const region   = document.getElementById('uav-region')?.value || 'Ghana';
+  const operator = document.getElementById('uav-operator')?.value.trim() || 'NAIMOS-OPS';
+  const notes    = document.getElementById('uav-notes')?.value.trim() || '';
+  const statusEl = document.getElementById('uav-upload-status');
+  
+  statusEl.innerHTML = `<div class="fetch-status loading"><div class="pulse-dot gold"></div><span>Uploading ${_uavPendingFilesLocal.length} image(s)…</span></div>`;
 
-    let ok = 0, fail = 0;
-    const API = _getPatchAPIBase();
+  let ok = 0, fail = 0;
+  const API = _getPatchAPIBase();
 
-    for (const file of _uavPendingFilesLocal) {
-      try {
-        const b64 = await new Promise((res,rej) => {
-          const r = new FileReader();
-          r.onload = ev => res(ev.target.result);
-          r.onerror = rej;
-          r.readAsDataURL(file);
-        });
-        const payload = {
-          filename: file.name, url: b64, thumbnailUrl: b64, imageDataUrl: b64,
-          missionId: 'NAIMOS-UAV-MANUAL', missionName: 'Manual Upload',
-          operator, region, capturedAt: new Date().toISOString(),
-          filesize: file.size, analysisNotes: notes,
-          tags: notes ? notes.toLowerCase().split(',').map(t=>t.trim()).filter(Boolean) : [],
-        };
-        const res = await fetch(`${API}/drones/upload`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-drone-secret': secret },
-          body: JSON.stringify(payload),
-        });
-        if (res.ok) ok++;
-        else fail++;
-      } catch { fail++; }
-    }
+  for (const file of _uavPendingFilesLocal) {
+    try {
+      // Use FormData instead of base64 JSON
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('region', region);
+      formData.append('mission', 'Manual Upload');
+      formData.append('operator', operator);
+      formData.append('notes', notes);
+      formData.append('type', 'rgb');
+      
+      const res = await fetch(`${API}/drones/upload`, {
+        method: 'POST',
+        headers: { 'x-drone-secret': secret },  // Don't set Content-Type, let browser set it with boundary
+        body: formData,
+      });
+      
+      if (res.ok) ok++;
+      else fail++;
+    } catch { fail++; }
+  }
 
-    if (ok > 0) {
-      statusEl.innerHTML = `<div class="fetch-status success"><div class="pulse-dot green"></div><span>✓ ${ok} image(s) uploaded · Refreshing feed…</span></div>`;
-      uavCancelUpload();
-      setTimeout(() => { uavLoadFeed(true); uavLoadStats(); }, 1000);
-    } else {
-      statusEl.innerHTML = `<div class="fetch-status error"><div class="pulse-dot red"></div><span>✗ Upload failed. Check secret key and backend.</span></div>`;
-    }
-  };
+  if (ok > 0) {
+    statusEl.innerHTML = `<div class="fetch-status success"><div class="pulse-dot green"></div><span>✓ ${ok} image(s) uploaded · Refreshing feed…</span></div>`;
+    uavCancelUpload();
+    setTimeout(() => { uavLoadFeed(true); uavLoadStats(); }, 1000);
+  } else {
+    statusEl.innerHTML = `<div class="fetch-status error"><div class="pulse-dot red"></div><span>✗ Upload failed. Check secret key and backend.</span></div>`;
+  }
+};
 
   // Drag & drop on UAV upload zone
   setTimeout(() => {
