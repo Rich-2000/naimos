@@ -72,19 +72,7 @@ Everything now goes through /api/* on the backend.
 
 ## Step 3 — Configure environment variables
 
-Edit `/path/to/naimos/.env`:
-
-```bash
-NODE_ENV=development
-PORT=3001
-
-GEMINI_API_KEY=your_key_from_aistudio.google.com
-FIRMS_MAP_KEY=3963adb47e6299f506896cca3785fb97
-SENTINEL_CLIENT_ID=321ac35f-02f6-46f4-b3e4-6af53357ddf0
-SENTINEL_CLIENT_SECRET=HbmMcRpQl62fvZRFSHk8EXgrW80lIXha
-GEE_API_KEY=AIzaSyB3j5_UjKuu-cglOUeciEPjCqo2u6hWC84
-GEE_PROJECT=projects/earthengine-public
-ALLOWED_ORIGIN=*
+Edit 
 ```
 
 ---
