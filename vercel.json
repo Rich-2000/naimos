@@ -13,16 +13,36 @@
       "use": "@vercel/static"
     },
     {
+      "src": "login.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "auth-guard.js",
+      "use": "@vercel/static"
+    },
+    {
       "src": "api-client.js",
       "use": "@vercel/static"
     }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "naimos-backend/src/server.ts" },
+    { "src": "/api/(.*)",      "dest": "naimos-backend/src/server.ts" },
+    { "src": "/login.html",    "dest": "/login.html" },
+    { "src": "/auth-guard.js", "dest": "/auth-guard.js" },
     { "src": "/api-client.js", "dest": "/api-client.js" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    { "src": "/(.*)",          "dest": "/index.html" }
   ],
   "env": {
     "NODE_ENV": "production"
-  }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-DNS-Prefetch-Control", "value": "off" },
+        { "key": "Referrer-Policy",        "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ]
 }

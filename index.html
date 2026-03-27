@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="/auth-guard.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>NAIMOS · Anti-Galamsey Smart Management System</title>
@@ -3671,7 +3672,7 @@ body.ai-modal-open { overflow: hidden; }
                   Select a layer type and region above to load live Sentinel-2 NDVI or Sentinel-1 SAR imagery.
                 </div>
                 <div style="margin-top:10px;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-muted);">
-                  Client ID: 321ac35f...ddf0 · Connected
+                  Connected
                 </div>
               </div>
             </div>
@@ -3750,7 +3751,7 @@ body.ai-modal-open { overflow: hidden; }
 
         <div id="pc-status" class="fetch-status live">
           <div class="pulse-dot green"></div>
-          <span>✓ Planetary Computer connected · Tokens auto-refreshing · No auth required</span>
+          <span>✓ Planetary Computer connected </span>
         </div>
 
         <!-- Scene search controls -->
@@ -3805,7 +3806,7 @@ body.ai-modal-open { overflow: hidden; }
             Landsat: 30m · 16-day · 1972–present
           </div>
           <div style="background:rgba(212,160,23,0.07);border:1px solid rgba(212,160,23,0.2);border-radius:3px;padding:4px 10px;font-size:10px;color:var(--gold);font-family:'Share Tech Mono',monospace;">
-            FREE · No auth · Tokens auto-refresh
+            auto-refresh
           </div>
         </div>
       </div>
@@ -3883,7 +3884,7 @@ body.ai-modal-open { overflow: hidden; }
 
         <div id="gee-status" class="fetch-status loading">
           <div class="pulse-dot gold"></div>
-          <span>Ready · API Key: AIzaSyB3j5...C84 · Click a button below to compute</span>
+          <span>Ready . Click a button below to compute</span>
         </div>
 
         <!-- Controls -->
@@ -3936,7 +3937,7 @@ body.ai-modal-open { overflow: hidden; }
                 Sentinel-2 SR Harmonized · Last 45 days · Cloud-filtered · 10m resolution
               </div>
               <div style="margin-top:14px;font-family:'Share Tech Mono',monospace;font-size:9.5px;color:var(--text-muted);">
-                GEE Key: AIzaSyB3j5...C84 · Project: earthengine-public
+                 earthengine
               </div>
             </div>
           </div>
@@ -4434,7 +4435,7 @@ const GEMINI_API_KEY = 'MANAGED_BY_BACKEND';
 // FALLBACK: If Sentinel Hub trial expired (March 20 2026),
 // automatically fall back to Copernicus Browser WMS (free, no auth).
 
-const SENTINEL_CLIENT_ID     = '321ac35f-02f6-46f4-b3e4-6af53357ddf0';
+const SENTINEL_CLIENT_ID     = '';
 const SENTINEL_CLIENT_SECRET = '';
 let sentinelToken = null;
 let sentinelTokenExpiry = 0;
@@ -12252,8 +12253,8 @@ document.getElementById('ops-assign-modal')?.addEventListener('click', e => {
   }
 
   async function _uavApiFetch(path) {
-    const base = _getPatchAPIBase();
-    const res = await fetch(base + path, {
+  const base = _getPatchAPIBase();
+  const res = await window.fetch(base + path, {
       signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -12292,6 +12293,723 @@ document.getElementById('ops-assign-modal')?.addEventListener('click', e => {
   }
 
 })();
+/**
+ * NAIMOS — Sentinel Hub Frontend Integration (Production)
+ *
+ * Replaces ALL direct Sentinel Hub API calls and the hardcoded
+ * instance ID (a91a47a9-...) with secure backend-proxied requests.
+ *
+ * Drop this entire <script> block into index.html just before </body>,
+ * after the existing script blocks. It overwrites the broken functions.
+ *
+ * Backend endpoints consumed:
+ *   POST /api/sentinel/token          — OAuth token (cached server-side)
+ *   GET  /api/sentinel/image          — Process API image proxy
+ *     ?layer=ndvi|sar|truecolor|falsecolor
+ *     &region=western|ashanti|ghana
+ *     &width=512&height=512
+ */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SENTINEL STATE
+───────────────────────────────────────────────────────────────────────────── */
+const _SH = {
+  loading:  false,
+  lastLayer: null,
+  lastRegion: null,
+  objectURL: null,   // revoke previous blob URLs to avoid leaks
+};
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   UTILITY — resolve backend base URL the same way api-client.js does
+───────────────────────────────────────────────────────────────────────────── */
+function _shApiBase() {
+  if (typeof API_BASE !== 'undefined' && API_BASE) return API_BASE;
+  const h = location.hostname;
+  if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:3001/api';
+  return location.origin + '/api';
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   STATUS BAR helpers
+───────────────────────────────────────────────────────────────────────────── */
+function _shSetStatus(type, msg) {
+  const el  = document.getElementById('sentinel-status');
+  const txt = el && el.querySelector('span');
+  if (!el) return;
+  // type: 'loading' | 'success' | 'error'
+  el.className = 'fetch-status ' + type;
+  if (txt) txt.textContent = msg;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   IMAGE VIEWER helpers
+───────────────────────────────────────────────────────────────────────────── */
+function _shShowImage(blobURL, caption, dateLabel) {
+  const imgEl   = document.getElementById('sentinel-img');
+  const capEl   = document.getElementById('sentinel-caption');
+  const phEl    = document.getElementById('sentinel-placeholder');
+  const dateEl  = document.getElementById('sentinel-date-label');
+
+  if (!imgEl) return;
+
+  // Revoke previous object URL to free memory
+  if (_SH.objectURL && _SH.objectURL !== blobURL) {
+    URL.revokeObjectURL(_SH.objectURL);
+  }
+  _SH.objectURL = blobURL;
+
+  imgEl.style.opacity = '0';
+  imgEl.src = blobURL;
+  imgEl.onload = () => { imgEl.style.opacity = '1'; };
+
+  if (phEl)   phEl.style.display   = 'none';
+  if (capEl)  capEl.textContent    = caption;
+  if (dateEl) dateEl.textContent   = dateLabel;
+}
+
+function _shShowError(msg) {
+  const imgEl = document.getElementById('sentinel-img');
+  const phEl  = document.getElementById('sentinel-placeholder');
+  const capEl = document.getElementById('sentinel-caption');
+
+  if (imgEl) { imgEl.style.opacity = '0.08'; imgEl.src = ''; }
+  if (capEl) capEl.textContent = msg;
+
+  // Build a friendly error panel inside the placeholder
+  if (phEl) {
+    phEl.style.display = 'flex';
+    phEl.innerHTML = `
+      <div style="text-align:center;padding:28px;max-width:420px;margin:0 auto;">
+        <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
+        <div style="font-family:'Orbitron',monospace;font-size:9.5px;color:var(--red-alert);letter-spacing:2px;margin-bottom:10px;">
+          SENTINEL HUB ERROR
+        </div>
+        <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:16px;">${msg}</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button
+            onclick="loadSentinelLayer('${_SH.lastLayer || 'ndvi'}','${_SH.lastRegion || 'western'}')"
+            style="background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.35);
+                   color:var(--gold);font-family:'Orbitron',monospace;font-size:8.5px;
+                   padding:9px 14px;border-radius:3px;cursor:pointer;letter-spacing:1.5px;">
+            ⟳ RETRY
+          </button>
+          <a href="https://browser.dataspace.copernicus.eu/" target="_blank"
+             style="display:block;background:rgba(46,204,113,0.08);border:1px solid rgba(46,204,113,0.3);
+                    color:#2ECC71;font-family:'Orbitron',monospace;font-size:8.5px;
+                    padding:9px 14px;border-radius:3px;text-decoration:none;letter-spacing:1.5px;">
+            🌍 COPERNICUS BROWSER ↗
+          </a>
+        </div>
+      </div>`;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   MAIN ENTRY POINT — replaces the broken loadSentinelLayer() in index.html
+   Called by the NDVI/SAR buttons in #tab-sentinel
+───────────────────────────────────────────────────────────────────────────── */
+window.loadSentinelLayer = async function loadSentinelLayer(layer, region) {
+  if (_SH.loading) return;   // debounce rapid clicks
+  _SH.loading    = true;
+  _SH.lastLayer  = layer;
+  _SH.lastRegion = region;
+
+  const LAYER_LABELS = {
+    ndvi:       'NDVI (vegetation health)',
+    sar:        'SAR Backscatter (radar)',
+    truecolor:  'True Colour RGB',
+    falsecolor: 'False Colour NIR',
+  };
+  const REGION_LABELS = {
+    western: 'Western Region (Tarkwa–Prestea)',
+    ashanti: 'Ashanti Region (Obuasi–Kumawu)',
+    ghana:   'All Ghana',
+  };
+  const layerLabel  = LAYER_LABELS[layer]  || layer.toUpperCase();
+  const regionLabel = REGION_LABELS[region] || region;
+
+  _shSetStatus('loading', `⟳ Loading ${layerLabel} · ${regionLabel}…`);
+
+  // Dim the existing image while loading
+  const imgEl = document.getElementById('sentinel-img');
+  if (imgEl && imgEl.src) imgEl.style.opacity = '0.25';
+
+  const base   = _shApiBase();
+  const width  = window.innerWidth < 640 ? 512 : 768;
+  const height = width;
+
+  const url = `${base}/sentinel/image?layer=${encodeURIComponent(layer)}&region=${encodeURIComponent(region)}&width=${width}&height=${height}`;
+
+  try {
+    const resp = await fetch(url, {
+      signal: AbortSignal.timeout(60_000),   // 60 s — Sentinel can be slow for large regions
+    });
+
+    if (!resp.ok) {
+      // Try to parse a JSON error body
+      let errMsg = `HTTP ${resp.status}`;
+      try {
+        const ct = resp.headers.get('content-type') || '';
+        if (ct.includes('json')) {
+          const j = await resp.json();
+          errMsg = j.error || j.message || errMsg;
+        } else {
+          errMsg = (await resp.text()).slice(0, 200) || errMsg;
+        }
+      } catch (_) { /* ignore */ }
+
+      throw new Error(errMsg);
+    }
+
+    const ct = resp.headers.get('content-type') || 'image/png';
+    if (!ct.startsWith('image/')) {
+      const text = await resp.text();
+      throw new Error('Unexpected response type: ' + ct + ' — ' + text.slice(0, 120));
+    }
+
+    const blob    = await resp.blob();
+    const objURL  = URL.createObjectURL(blob);
+
+    // Read extra metadata headers the backend sends
+    const dateFrom = resp.headers.get('X-Sentinel-DateFrom') || '—';
+    const dateTo   = resp.headers.get('X-Sentinel-DateTo')   || new Date().toISOString().slice(0, 10);
+    const puSpent  = resp.headers.get('X-Processing-Units')  || '?';
+
+    const dateLabel = dateTo.slice(0, 10);
+    const caption   =
+      `${layerLabel} · ${regionLabel}` +
+      ` · ${dateFrom} → ${dateTo}` +
+      (puSpent !== '?' ? ` · ${puSpent} PU spent` : '');
+
+    _shShowImage(objURL, caption, dateLabel);
+
+    _shSetStatus('success',
+      `✓ ${layerLabel} · ${regionLabel} · ${dateFrom} → ${dateTo}` +
+      (puSpent !== '?' ? ` · ${puSpent} PU` : ''));
+
+    // Update sidebar source status
+    _shMarkSourceLive();
+
+    // Trigger intel fusion update
+    if (window._sourceHealth) window._sourceHealth.sentinel = 'live';
+    if (typeof updateAlertsSourceTag === 'function') updateAlertsSourceTag();
+
+  } catch (err) {
+    let msg = err && err.message ? err.message : String(err);
+
+    // Human-friendly overrides for common failures
+    if (msg.includes('422') || msg.includes('No') || msg.includes('data found')) {
+      msg = `No ${layer === 'sar' ? 'SAR' : 'optical'} imagery found for "${regionLabel}" in the current date window. Try a different region or layer type.`;
+    } else if (msg.includes('401') || msg.includes('403') || msg.includes('auth')) {
+      msg = 'Sentinel Hub authentication failed. Check SENTINEL_CLIENT_ID and SENTINEL_CLIENT_SECRET in your .env file.';
+    } else if (msg.includes('504') || msg.includes('timeout') || msg.includes('Timeout')) {
+      msg = 'Sentinel Hub timed out. "All Ghana" is a large region — try "Western" or "Ashanti" instead.';
+    } else if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+      msg = 'Cannot reach the NAIMOS backend. Ensure the server is running.';
+    }
+
+    _shSetStatus('error', '✗ ' + msg.slice(0, 120));
+    _shShowError(msg);
+    console.error('[NAIMOS Sentinel]', err);
+  } finally {
+    _SH.loading = false;
+  }
+};
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Update sidebar "Live Data Sources" to show Sentinel as LIVE
+───────────────────────────────────────────────────────────────────────────── */
+function _shMarkSourceLive() {
+  document.querySelectorAll('.source-row').forEach(row => {
+    const name = row.querySelector('.source-name');
+    if (!name) return;
+    const txt = name.textContent || '';
+    if (txt.includes('Sentinel')) {
+      const badge = row.querySelector('.source-status');
+      if (badge) { badge.textContent = 'LIVE'; badge.className = 'source-status live'; }
+    }
+  });
+
+  // Proxy bar badge
+  const badge = document.getElementById('proxy-sentinel');
+  if (badge) { badge.textContent = '⬤ SENTINEL'; badge.className = 'proxy-badge ok'; }
+
+  // Source health bar in Intel tab
+  const healthEl = document.getElementById('health-sentinel');
+  if (healthEl) {
+    healthEl.textContent     = '● ESA SENTINEL · LIVE';
+    healthEl.style.background = 'rgba(0,255,136,0.07)';
+    healthEl.style.color      = 'var(--gold)';
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PLACEHOLDER — remove the hardcoded client ID from the placeholder div.
+   Replaces the static HTML string "Client ID: 321ac35f...ddf0 · Connected"
+   with a backend-status check on first render of the Sentinel tab.
+───────────────────────────────────────────────────────────────────────────── */
+async function _shInitPlaceholder() {
+  // Scrub the hardcoded credential fragment from the DOM
+  document.querySelectorAll('#tab-sentinel *').forEach(el => {
+    if (el.childNodes.length === 1 && el.childNodes[0].nodeType === Node.TEXT_NODE) {
+      if (el.textContent.includes('321ac35f') || el.textContent.includes('ddf0')) {
+        el.textContent = 'Sentinel Hub · Backend managed · Secure';
+      }
+      // Remove account-expiry date info (no longer relevant post-trial)
+      if (el.textContent.includes('Apr 17 2026') || el.textContent.includes('Expires ~')) {
+        el.textContent = el.textContent
+          .replace(/TRIAL\s*·\s*Expires ~[^\n"<]*/gi, 'ACTIVE · Backend credentials')
+          .replace(/Trial account[^.]*\./gi, 'Credentials managed server-side.');
+      }
+    }
+  });
+
+  // Verify the backend token endpoint is reachable and show status
+  const base = _shApiBase();
+  const statusLabel = document.querySelector('#sentinel-placeholder [style*="Share Tech Mono"]');
+
+  try {
+    const resp = await fetch(`${base}/sentinel/token`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(10_000),
+    });
+    const data = await resp.json();
+
+    if (resp.ok && data.token) {
+      _shSetStatus('success', '✓ Sentinel Hub authenticated via backend');
+      if (statusLabel) statusLabel.textContent = 'Backend · Authenticated · Ready';
+      _shMarkSourceLive();
+    } else {
+      const msg = data.error || `HTTP ${resp.status}`;
+      _shSetStatus('error', '✗ Sentinel Hub: ' + msg);
+      if (statusLabel) statusLabel.textContent = 'Auth failed — check .env credentials';
+    }
+  } catch (err) {
+    // Backend unreachable — don't crash, just note it
+    _shSetStatus('loading', '⟳ Sentinel Hub · Connecting to backend…');
+    if (statusLabel) statusLabel.textContent = 'Connecting to backend…';
+    console.warn('[NAIMOS Sentinel] Placeholder init:', err.message);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ALSO REMOVE hardcoded WMS instance ID from buildCopernicusWMSUrl.
+   That function built URLs with the public demo instance — we no longer need it
+   because the backend handles ALL imagery. Override it to point to the backend.
+───────────────────────────────────────────────────────────────────────────── */
+window.buildCopernicusWMSUrl   = () => { console.warn('[NAIMOS] buildCopernicusWMSUrl is deprecated — use loadSentinelLayer()'); return ''; };
+window.buildSentinelWMSUrl     = () => { console.warn('[NAIMOS] buildSentinelWMSUrl is deprecated — use loadSentinelLayer()'); return ''; };
+window.getSentinelToken        = async () => { console.warn('[NAIMOS] getSentinelToken is deprecated — token managed by backend'); return null; };
+window.showSentinelFallback    = (type, bbox, label) => loadSentinelLayer(type, Object.entries({ western:[-3.3,4.7,-1.5,6.8], ashanti:[-2.5,5.8,-0.8,7.3] }).find(([,b]) => b.join(',') === bbox.join(','))?.[0] || 'western');
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   HOOK into switchTab — run placeholder init the first time the Sentinel tab
+   is opened, and on subsequent visits refresh only the status bar.
+───────────────────────────────────────────────────────────────────────────── */
+(function _shPatchSwitchTab() {
+  let _sentinelInited = false;
+  const _orig = window.switchTab;
+  if (typeof _orig !== 'function') return;
+
+  window.switchTab = function(tab) {
+    _orig.apply(this, arguments);
+    if (tab === 'sentinel') {
+      if (!_sentinelInited) {
+        _sentinelInited = true;
+        _shInitPlaceholder();
+      } else {
+        // Just refresh the status bar on re-visit
+        _shSetStatus('loading', '⟳ Ready — select a layer above to load imagery');
+      }
+    }
+  };
+})();
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BOOT — scrub credentials from DOM immediately on page load
+───────────────────────────────────────────────────────────────────────────── */
+(function _shBootScrub() {
+  // Remove all instances of the hardcoded public demo WMS instance ID
+  // and the partial client-ID fragment from visible DOM text
+  const SCRUB_PATTERNS = [
+    /a91a47a9-ea85-4a44-8905-6dbaf1a7dcc9/g,
+    /321ac35f[.\w]*/g,
+    /ddf0\b/g,
+  ];
+
+  function scrubNode(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      let txt = node.textContent;
+      let changed = false;
+      SCRUB_PATTERNS.forEach(p => {
+        if (p.test(txt)) { txt = txt.replace(p, '[backend-managed]'); changed = true; }
+        p.lastIndex = 0;
+      });
+      if (changed) node.textContent = txt;
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      // Also scrub href/src attributes
+      ['href','src','action','data-url'].forEach(attr => {
+        const val = node.getAttribute(attr);
+        if (val) {
+          let newVal = val;
+          SCRUB_PATTERNS.forEach(p => { newVal = newVal.replace(p, '[backend-managed]'); p.lastIndex = 0; });
+          if (newVal !== val) node.setAttribute(attr, newVal);
+        }
+      });
+      node.childNodes.forEach(scrubNode);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => scrubNode(document.body));
+  } else {
+    scrubNode(document.body);
+  }
+})();
+
+console.log('%c NAIMOS · Sentinel Hub v2 · Backend-proxied · No client credentials in browser', 'color:#2ECC71;font-size:11px;');
+
+function _corsFixApiBase() {
+  if (typeof API_BASE !== 'undefined' && API_BASE) return API_BASE;
+  return location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+    ? 'http://localhost:3001/api'
+    : location.origin + '/api';
+}
+ 
+/* ═══════════════════════════════════════════════════════════════════
+   FIX 1 — NASA FIRMS
+   Replace the three-proxy fallback chain with a single clean
+   call to GET /api/firms (already wired in your api-client.js).
+═══════════════════════════════════════════════════════════════════ */
+window.fetchFIRMSData = async function fetchFIRMSData() {
+  const days   = document.getElementById('firms-days')?.value   || '2';
+  const sensor = document.getElementById('firms-sensor')?.value || 'VIIRS_SNPP_NRT';
+ 
+  const statusEl  = document.getElementById('firms-fetch-status');
+  const statusTxt = document.getElementById('firms-status-text');
+  const setStatus = (type, msg) => {
+    if (statusEl)  statusEl.className = 'fetch-status ' + type;
+    if (statusTxt) statusTxt.textContent = msg;
+  };
+ 
+  setStatus('loading', `⟳ Fetching ${days}-day Ghana thermal data via backend (${sensor})…`);
+ 
+  try {
+    const base = _corsFixApiBase();
+    const resp = await fetch(
+      `${base}/firms?days=${days}&sensor=${encodeURIComponent(sensor)}`,
+      { signal: AbortSignal.timeout(25_000) }
+    );
+ 
+    if (!resp.ok) {
+      const j = await resp.json().catch(() => ({}));
+      throw new Error(j.error || `HTTP ${resp.status}`);
+    }
+ 
+    const csvText = await resp.text();
+    if (!csvText || csvText.length < 30) {
+      setStatus('loading', `⚠ No thermal detections in Ghana for last ${days} day(s). Try "Last 3 Days".`);
+      return;
+    }
+ 
+    // Use the existing parseCSV already defined in index.html
+    const rows = (typeof parseCSV === 'function') ? parseCSV(csvText) : [];
+    if (!rows.length) {
+      setStatus('loading', `⚠ CSV parsed but no valid rows. Response: ${csvText.slice(0, 80)}`);
+      return;
+    }
+ 
+    rows.forEach(r => {
+      if (typeof classifyRegion === 'function') r.region = classifyRegion(r.lat, r.lon);
+      if (typeof galamseyRisk   === 'function') r.risk   = galamseyRisk(r.frp, r.daynight, r.brightness);
+    });
+ 
+    window.firmsData         = rows;
+    window.firmsRawData      = rows;
+    window.firmsFilteredData = [...rows];
+ 
+    setStatus('success', `✓ ${rows.length} thermal hotspots · Ghana · ${new Date().toUTCString().slice(17, 25)} UTC`);
+ 
+    // Update the proxy bar badge
+    const badge = document.getElementById('proxy-firms');
+    if (badge) { badge.textContent = `⬤ FIRMS (${rows.length})`; badge.className = 'proxy-badge ok'; }
+ 
+    // Trigger existing renderers (already defined in index.html)
+    if (typeof updateFIRMSStats  === 'function') updateFIRMSStats();
+    if (typeof renderFIRMSTable  === 'function') renderFIRMSTable(rows);
+    if (typeof renderFIRMSCharts === 'function') renderFIRMSCharts();
+    if (typeof injectFIRMSAlerts === 'function') injectFIRMSAlerts();
+    if (typeof updateAnalyticsCharts === 'function' && window.chartsInitialized) updateAnalyticsCharts(rows);
+ 
+    // Fire the custom event so refreshIntelDatabase picks it up
+    window.dispatchEvent(new CustomEvent('firms-data-loaded'));
+ 
+  } catch (err) {
+    const msg = err.message || String(err);
+    const friendly = msg.includes('timeout') || msg.includes('Timeout')
+      ? 'Request timed out — backend may be busy. Retrying in 10s…'
+      : msg.includes('Failed to fetch') || msg.includes('NetworkError')
+      ? 'Cannot reach backend. Ensure the NAIMOS server is running.'
+      : msg;
+ 
+    setStatus('error', '✗ FIRMS: ' + friendly.slice(0, 120));
+    console.error('[NAIMOS FIRMS]', err);
+  }
+};
+ 
+/* ═══════════════════════════════════════════════════════════════════
+   FIX 2 — Copernicus STAC (runSentinelFusion)
+   The browser was directly calling catalogue.dataspace.copernicus.eu
+   which returns 403 for browser requests without auth headers.
+   Route through GET /api/copernicus/stac?collection=&bbox=&...
+═══════════════════════════════════════════════════════════════════ */
+ 
+/**
+ * Fetches Copernicus STAC metadata via the backend proxy.
+ * Replaces the direct fetch() calls inside runSentinelFusion().
+ *
+ * @param {string} collection  'Sentinel2' | 'Sentinel1'
+ * @param {number[]} bbox      [west, south, east, north]
+ * @param {string} from        ISO date string
+ * @param {string} to          ISO date string
+ * @param {object} opts        { cloudMax, productType, maxRecords }
+ */
+async function _fetchCopernicusViaBackend(collection, bbox, from, to, opts = {}) {
+  const base   = _corsFixApiBase();
+  const params = new URLSearchParams({
+    collection,
+    bbox:       bbox.join(','),
+    dateFrom:   from,
+    dateTo:     to,
+    maxRecords: String(opts.maxRecords || 5),
+  });
+  if (opts.cloudMax   != null) params.set('cloudMax',   opts.cloudMax);
+  if (opts.productType)        params.set('productType', opts.productType);
+ 
+  const resp = await fetch(`${base}/copernicus/stac?${params}`, {
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!resp.ok) {
+    const j = await resp.json().catch(() => ({}));
+    throw new Error(j.error || `HTTP ${resp.status}`);
+  }
+  const data = await resp.json();
+  return data.features || data.results || [];
+}
+ 
+/**
+ * Override runSentinelFusion to use the backend proxy instead of direct calls.
+ * Keeps the same output shape so the fusion engine works unchanged.
+ */
+window.runSentinelFusion = async function runSentinelFusion() {
+  const today   = new Date();
+  const from20  = new Date(today - 20 * 864e5).toISOString().slice(0, 10);
+  const toDate  = today.toISOString().slice(0, 10);
+ 
+  const HIGH_RISK = [
+    { reg: 'Western',    bbox: [-3.3, 4.7, -1.5, 6.8] },
+    { reg: 'Ashanti',    bbox: [-2.5, 5.8, -0.8, 7.3] },
+    { reg: 'Eastern',    bbox: [-1.2, 5.8,  0.5, 7.2] },
+    { reg: 'Central',    bbox: [-2.2, 5.0, -0.8, 6.2] },
+    { reg: 'Bono/Ahafo', bbox: [-3.0, 6.5, -0.5, 8.2] },
+    { reg: 'Volta',      bbox: [ 0.0, 6.0,  1.2, 9.5] },
+  ];
+ 
+  const getAgeStr = (dt) => {
+    if (!dt || isNaN(new Date(dt).getTime())) return '—';
+    const diff = Math.floor((Date.now() - new Date(dt).getTime()) / 60000);
+    if (diff < 60)  return `${diff} MIN AGO`;
+    if (diff < 1440) return `${Math.floor(diff / 60)}H AGO`;
+    return `${Math.floor(diff / 1440)}D AGO`;
+  };
+ 
+  const incidents = [];
+ 
+  // S2 queries — parallel across all regions via backend
+  const s2Results = await Promise.allSettled(
+    HIGH_RISK.map(({ reg, bbox }) =>
+      _fetchCopernicusViaBackend('Sentinel2', bbox, from20, toDate, { cloudMax: 25, maxRecords: 5 })
+        .then(features => ({ reg, features }))
+    )
+  );
+ 
+  s2Results.forEach(result => {
+    if (result.status !== 'fulfilled') return;
+    const { reg, features } = result.value;
+    features.forEach((feat, idx) => {
+      const props     = feat.properties || {};
+      const date      = (props.startDate || toDate).slice(0, 10);
+      const cloud     = props.cloudCover ?? null;
+      const isRecent  = new Date(date) > new Date(today - 8 * 864e5);
+      const cloudFact = cloud != null ? 1 - Math.min(cloud, 100) / 100 : 0.7;
+      const conf      = Math.round(58 + (isRecent ? 18 : 5) + cloudFact * 19);
+ 
+      let lat = null, lon = null;
+      try {
+        const coords = feat.geometry?.coordinates?.[0];
+        if (coords) {
+          lat = +(coords.reduce((s, c) => s + c[1], 0) / coords.length).toFixed(4);
+          lon = +(coords.reduce((s, c) => s + c[0], 0) / coords.length).toFixed(4);
+        }
+      } catch (_) {}
+ 
+      incidents.push({
+        id:          `S2-${reg.slice(0, 2).toUpperCase()}${String(idx + 1).padStart(2, '0')}`,
+        location:    lat && lon && typeof getLocationName === 'function'
+                       ? getLocationName(lat, lon, reg)
+                       : `${reg} Region · S2 Pass`,
+        region:      reg,
+        status:      'MONITORED',
+        confidence:  conf,
+        areaHa:      '~Scene',
+        threatType:  'NDVI CHANGE WATCH',
+        source:      'Sentinel-2 L2A · Copernicus (backend)',
+        lastUpdate:  getAgeStr(props.startDate),
+        lat, lon,
+        cloudCover:  cloud != null ? cloud.toFixed(1) + '%' : '—',
+        sceneId:     feat.id || `S2-${reg}-${idx}`,
+        sourceLayer: 'SENTINEL_S2',
+      });
+    });
+  });
+ 
+  // S1 queries — top 3 risk regions only
+  const s1Results = await Promise.allSettled(
+    HIGH_RISK.slice(0, 3).map(({ reg, bbox }) =>
+      _fetchCopernicusViaBackend('Sentinel1', bbox, from20, toDate, { productType: 'GRD', maxRecords: 4 })
+        .then(features => ({ reg, features }))
+    )
+  );
+ 
+  s1Results.forEach(result => {
+    if (result.status !== 'fulfilled') return;
+    const { reg, features } = result.value;
+    features.slice(0, 2).forEach((feat, idx) => {
+      const props    = feat.properties || {};
+      const date     = (props.startDate || toDate).slice(0, 10);
+      const isRecent = new Date(date) > new Date(today - 6 * 864e5);
+      let lat = null, lon = null;
+      try {
+        const coords = feat.geometry?.coordinates?.[0];
+        if (coords) {
+          lat = +(coords.reduce((s, c) => s + c[1], 0) / coords.length).toFixed(4);
+          lon = +(coords.reduce((s, c) => s + c[0], 0) / coords.length).toFixed(4);
+        }
+      } catch (_) {}
+ 
+      incidents.push({
+        id:          `S1-${reg.slice(0, 2).toUpperCase()}${String(idx + 1).padStart(2, '0')}`,
+        location:    `${reg} Region · SAR Pass`,
+        region:      reg,
+        status:      'MONITORED',
+        confidence:  Math.round(55 + (isRecent ? 22 : 8)),
+        areaHa:      '~SAR Strip',
+        threatType:  'SAR BACKSCATTER',
+        source:      'Sentinel-1 GRD · Copernicus (backend)',
+        lastUpdate:  getAgeStr(props.startDate),
+        lat, lon,
+        sceneId:     feat.id || `S1-${reg}-${idx}`,
+        sourceLayer: 'SENTINEL_S1',
+      });
+    });
+  });
+ 
+  if (!incidents.length) throw new Error('Sentinel: no scenes returned via backend proxy');
+ 
+  // Update health state
+  if (window._sourceHealth) window._sourceHealth.sentinel = 'live';
+  if (window._sentinelNDVIData) window._sentinelNDVIData = { count: s2Results.filter(r => r.status === 'fulfilled').length, ts: Date.now() };
+  if (window._sentinelSARData)  window._sentinelSARData  = { count: s1Results.filter(r => r.status === 'fulfilled').length, ts: Date.now() };
+ 
+  return incidents;
+};
+ 
+/* ═══════════════════════════════════════════════════════════════════
+   FIX 3 — GEE fallback was calling Planetary Computer STAC directly.
+   Route through GET /api/planetary/stac (already exists in backend).
+═══════════════════════════════════════════════════════════════════ */
+window.runGEEPublicFallback = async function runGEEPublicFallback() {
+  const today  = new Date();
+  const from60 = new Date(today - 60 * 864e5).toISOString().slice(0, 10);
+  const toDate = today.toISOString().slice(0, 10);
+  const base   = _corsFixApiBase();
+ 
+  const GEE_REGIONS = [
+    { reg: 'western', bbox: [-3.3, 4.7, -1.5, 6.8], label: 'Western'    },
+    { reg: 'ashanti', bbox: [-2.5, 5.8, -0.8, 7.3], label: 'Ashanti'    },
+    { reg: 'eastern', bbox: [-1.2, 5.8,  0.5, 7.2], label: 'Eastern'    },
+    { reg: 'central', bbox: [-2.2, 5.0, -0.8, 6.2], label: 'Central'    },
+  ];
+ 
+  const getAgeStr = (d) => {
+    if (!d) return '—';
+    const diff = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+    return diff <= 0 ? 'TODAY' : `${diff}D AGO`;
+  };
+ 
+  const incidents = [];
+  const results = await Promise.allSettled(
+    GEE_REGIONS.map(async ({ reg, label, bbox }) => {
+      const params = new URLSearchParams({
+        dataset:  's2',
+        region:   reg,
+        dateFrom: from60,
+        dateTo:   toDate,
+        limit:    '2',
+      });
+      const resp = await fetch(`${base}/planetary/stac?${params}`, {
+        signal: AbortSignal.timeout(12_000),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data   = await resp.json();
+      const scenes = data.features || data.scenes || [];
+      return { label, reg, bbox, scenes };
+    })
+  );
+ 
+  results.forEach(result => {
+    if (result.status !== 'fulfilled' || !result.value.scenes.length) return;
+    const { label, bbox, scenes } = result.value;
+    const scene   = scenes[0];
+    const date    = scene.properties?.datetime?.slice(0, 10) || toDate;
+    const lat     = (bbox[1] + bbox[3]) / 2;
+    const lon     = (bbox[0] + bbox[2]) / 2;
+ 
+    incidents.push({
+      id:          `GEE-FB-${label.slice(0, 2).toUpperCase()}01`,
+      location:    `${label} Region · PC LULC Analysis`,
+      region:      label,
+      status:      'MONITORED',
+      confidence:  62,
+      areaHa:      '~Coverage',
+      threatType:  'LULC BARE GROUND',
+      source:      'GEE/LULC · Planetary Computer (backend)',
+      lastUpdate:  getAgeStr(date),
+      lat, lon,
+      sceneId:     scene.id,
+      sourceLayer: 'GEE_FALLBACK',
+    });
+  });
+ 
+  window._geeAnalysisCount = incidents.length;
+  if (!incidents.length) throw new Error('GEE fallback: no scenes via backend');
+  return incidents;
+};
+ 
+/* ═══════════════════════════════════════════════════════════════════
+   AUTO-FETCH FIRMS on page load (replaces the broken proxy chain)
+═══════════════════════════════════════════════════════════════════ */
+window.addEventListener('load', () => {
+  // Give the page 3 s to fully render, then silently fetch FIRMS
+  setTimeout(() => {
+    if (!window.firmsRawData || !window.firmsRawData.length) {
+      window.fetchFIRMSData();
+    }
+  }, 3000);
+});
+ 
+console.log('%c NAIMOS · CORS Fix Patch · FIRMS + Copernicus + GEE routed via backend', 'color:#4A9EFF;font-size:11px;');
 </script>
 </body>
 </html>

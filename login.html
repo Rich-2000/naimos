@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://naimos.vercel.app; frame-ancestors 'none'; form-action 'self';">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>NAIMOS · Secure Access Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   NAIMOS AMS — Secure Login Portal
+   Dark Gold Military · Production Grade
+   ============================================================ */
+
+:root {
+  --gold:             #D4A017;
+  --gold-bright:      #FFD700;
+  --gold-light:       #F0C040;
+  --gold-dim:         #8B6914;
+  --gold-glow:        rgba(212,160,23,0.15);
+  --gold-faint:       rgba(212,160,23,0.05);
+  --dark-base:        #06080E;
+  --dark-card:        #0A0D14;
+  --dark-panel:       #0E1219;
+  --dark-elevated:    #131820;
+  --dark-border:      #1C2438;
+  --dark-border-light:#252F45;
+  --red-alert:        #FF3B3B;
+  --red-dim:          rgba(255,59,59,0.15);
+  --green-safe:       #00FF88;
+  --text-primary:     #E8E4D8;
+  --text-secondary:   #6A7090;
+  --text-muted:       #3D4560;
+  --text-gold:        #D4A017;
+  --radius-sm:        3px;
+  --radius-md:        6px;
+  --transition:       0.18s ease;
+  --shadow-gold:      0 0 20px rgba(212,160,23,0.08);
+  --shadow-card:      0 4px 24px rgba(0,0,0,0.5);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--dark-base);
+  color: var(--text-primary);
+  font-family: 'Rajdhani', sans-serif;
+  overflow: hidden;
+}
+
+/* ── Animated tactical grid background ─── */
+.bg-grid {
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(212,160,23,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(212,160,23,0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  z-index: 0;
+  animation: gridDrift 40s linear infinite;
+}
+@keyframes gridDrift {
+  0%   { background-position: 0 0; }
+  100% { background-position: 48px 48px; }
+}
+
+/* ── Radial gold vignette ─── */
+.bg-radial {
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(212,160,23,0.04) 0%, transparent 70%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ── Scan line effect ─── */
+.scanline {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px);
+}
+
+/* ── Animated scanning beam ─── */
+.scan-beam {
+  position: fixed; left: 0; right: 0; height: 2px; z-index: 1; pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, rgba(212,160,23,0.15) 50%, transparent 100%);
+  animation: scanBeam 8s linear infinite;
+  opacity: 0.5;
+}
+@keyframes scanBeam {
+  0%   { top: -2px; }
+  100% { top: 100vh; }
+}
+
+/* ── Corner decorations ─── */
+.corner {
+  position: fixed; width: 60px; height: 60px; z-index: 2; pointer-events: none;
+  opacity: 0.3;
+}
+.corner-tl { top: 16px; left: 16px; border-top: 1px solid var(--gold); border-left: 1px solid var(--gold); }
+.corner-tr { top: 16px; right: 16px; border-top: 1px solid var(--gold); border-right: 1px solid var(--gold); }
+.corner-bl { bottom: 16px; left: 16px; border-bottom: 1px solid var(--gold); border-left: 1px solid var(--gold); }
+.corner-br { bottom: 16px; right: 16px; border-bottom: 1px solid var(--gold); border-right: 1px solid var(--gold); }
+
+/* ── Animated blips ─── */
+.blip {
+  position: fixed; width: 4px; height: 4px; border-radius: 50%;
+  background: var(--gold); opacity: 0; z-index: 2; pointer-events: none;
+  animation: blipPulse 4s ease-in-out infinite;
+}
+.blip-1 { top: 20px; left: 80px; animation-delay: 0s; }
+.blip-2 { top: 20px; right: 80px; animation-delay: 1.5s; }
+.blip-3 { bottom: 20px; left: 80px; animation-delay: 3s; }
+.blip-4 { bottom: 20px; right: 80px; animation-delay: 0.8s; }
+@keyframes blipPulse {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50%       { opacity: 0.8; transform: scale(1.5); box-shadow: 0 0 6px var(--gold); }
+}
+
+/* ── Center layout ─── */
+.login-wrapper {
+  position: relative; z-index: 10;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 100vh; padding: 24px;
+}
+
+/* ── Header / Logo block ─── */
+.login-header {
+  text-align: center; margin-bottom: 28px;
+}
+.logo-emblem {
+  width: 64px; height: 64px; margin: 0 auto 14px;
+  border: 1px solid rgba(212,160,23,0.4);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle, rgba(212,160,23,0.08) 0%, transparent 70%);
+  position: relative;
+  animation: emblemPulse 3s ease-in-out infinite;
+}
+@keyframes emblemPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212,160,23,0.0), inset 0 0 10px rgba(212,160,23,0.05); }
+  50%       { box-shadow: 0 0 0 8px rgba(212,160,23,0.06), inset 0 0 20px rgba(212,160,23,0.12); }
+}
+.logo-emblem svg { width: 30px; height: 30px; fill: var(--gold); opacity: 0.9; }
+.logo-ring {
+  position: absolute; inset: -6px; border-radius: 50%;
+  border: 1px solid rgba(212,160,23,0.12);
+  animation: ringRotate 12s linear infinite;
+}
+@keyframes ringRotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.logo-ring::after {
+  content: ''; position: absolute; top: 50%; left: -3px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold); transform: translateY(-50%);
+}
+
+.logo-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 22px; font-weight: 900;
+  letter-spacing: 6px;
+  color: var(--gold);
+  text-shadow: 0 0 20px rgba(212,160,23,0.3);
+  line-height: 1;
+}
+.logo-sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; letter-spacing: 3px;
+  color: var(--text-muted);
+  margin-top: 5px;
+  text-transform: uppercase;
+}
+.logo-classification {
+  display: inline-block;
+  margin-top: 10px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 8px; letter-spacing: 2px;
+  color: var(--red-alert);
+  border: 1px solid rgba(255,59,59,0.3);
+  padding: 2px 8px; border-radius: 2px;
+  background: rgba(255,59,59,0.06);
+  animation: classificationBlink 3s ease-in-out infinite;
+}
+@keyframes classificationBlink {
+  0%, 85%, 100% { opacity: 1; }
+  90%            { opacity: 0.4; }
+}
+
+/* ── Login card ─── */
+.login-card {
+  width: 100%; max-width: 400px;
+  background: var(--dark-card);
+  border: 1px solid var(--dark-border-light);
+  border-radius: 8px;
+  padding: 28px 28px 24px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.7), 0 0 40px rgba(212,160,23,0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Gold accent line top */
+.login-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold-dim), var(--gold), var(--gold-dim), transparent);
+}
+
+/* ── Card header ─── */
+.card-header {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--dark-border);
+}
+.card-header-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 6px rgba(212,160,23,0.6);
+  flex-shrink: 0;
+}
+.card-header-text {
+  font-family: 'Orbitron', monospace;
+  font-size: 9px; letter-spacing: 2.5px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+.card-header-line {
+  flex: 1; height: 1px; background: var(--dark-border);
+}
+
+/* ── Form groups ─── */
+.form-group {
+  margin-bottom: 16px;
+}
+.form-label {
+  display: block;
+  font-family: 'Orbitron', monospace;
+  font-size: 8px; letter-spacing: 2px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+.input-wrapper {
+  position: relative;
+}
+.input-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  width: 14px; height: 14px; opacity: 0.4;
+  pointer-events: none; flex-shrink: 0;
+}
+.form-input {
+  width: 100%;
+  background: var(--dark-panel);
+  border: 1px solid var(--dark-border);
+  border-radius: var(--radius-md);
+  padding: 11px 12px 11px 38px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px; letter-spacing: 1px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--gold);
+}
+.form-input::placeholder {
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+.form-input:focus {
+  border-color: rgba(212,160,23,0.5);
+  background: var(--dark-elevated);
+  box-shadow: 0 0 0 3px rgba(212,160,23,0.06), inset 0 0 0 1px rgba(212,160,23,0.08);
+}
+.form-input.input-error {
+  border-color: rgba(255,59,59,0.5);
+  box-shadow: 0 0 0 3px rgba(255,59,59,0.06);
+}
+
+/* Password toggle button */
+.pwd-toggle {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; padding: 4px;
+  opacity: 0.35; transition: opacity 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.pwd-toggle:hover { opacity: 0.7; }
+.pwd-toggle svg { width: 15px; height: 15px; stroke: var(--text-primary); fill: none; }
+
+/* ── Remember me row ─── */
+.form-extras {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: -4px; margin-bottom: 20px;
+}
+.remember-label {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px; color: var(--text-secondary);
+}
+.remember-checkbox {
+  width: 14px; height: 14px; border-radius: 2px;
+  border: 1px solid var(--dark-border-light);
+  background: var(--dark-panel);
+  appearance: none; -webkit-appearance: none;
+  cursor: pointer; position: relative;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s;
+}
+.remember-checkbox:checked {
+  background: rgba(212,160,23,0.15);
+  border-color: var(--gold-dim);
+}
+.remember-checkbox:checked::after {
+  content: '✓';
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -52%);
+  font-size: 9px; color: var(--gold); line-height: 1;
+}
+.forgot-link {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; letter-spacing: 1.5px;
+  color: var(--gold-dim); text-decoration: none;
+  text-transform: uppercase;
+  transition: color 0.15s;
+  cursor: pointer;
+  background: none; border: none; padding: 0;
+}
+.forgot-link:hover { color: var(--gold); }
+
+/* ── Submit button ─── */
+.btn-login {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(212,160,23,0.12) 0%, rgba(212,160,23,0.08) 100%);
+  border: 1px solid rgba(212,160,23,0.35);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  font-family: 'Orbitron', monospace;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--gold);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  text-transform: uppercase;
+  position: relative; overflow: hidden;
+}
+.btn-login::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(212,160,23,0.08) 0%, transparent 100%);
+  opacity: 0; transition: opacity 0.18s;
+}
+.btn-login:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(212,160,23,0.2) 0%, rgba(212,160,23,0.12) 100%);
+  border-color: rgba(212,160,23,0.6);
+  box-shadow: 0 0 16px rgba(212,160,23,0.12);
+  transform: translateY(-1px);
+}
+.btn-login:hover:not(:disabled)::before { opacity: 1; }
+.btn-login:active:not(:disabled) { transform: translateY(0); }
+.btn-login:disabled {
+  opacity: 0.5; cursor: not-allowed;
+}
+.btn-login .btn-spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid rgba(212,160,23,0.3);
+  border-top-color: var(--gold);
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+.btn-login.loading .btn-spinner { display: block; }
+.btn-login.loading .btn-text    { opacity: 0.6; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Toast notification ─── */
+.toast-container {
+  position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+  z-index: 9999; min-width: 280px; max-width: 420px; width: 90%;
+  pointer-events: none;
+}
+.toast {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 14px; font-weight: 500;
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 8px;
+  transform: translateY(-20px); opacity: 0;
+  animation: toastIn 0.3s ease forwards;
+  pointer-events: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.toast.error {
+  background: rgba(15,5,5,0.96);
+  border: 1px solid rgba(255,59,59,0.4);
+  color: #FF8080;
+}
+.toast.success {
+  background: rgba(5,15,10,0.96);
+  border: 1px solid rgba(0,255,136,0.3);
+  color: var(--green-safe);
+}
+.toast.info {
+  background: rgba(10,10,20,0.96);
+  border: 1px solid rgba(212,160,23,0.3);
+  color: var(--gold);
+}
+.toast-icon { font-size: 15px; flex-shrink: 0; }
+@keyframes toastIn {
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes toastOut {
+  to { transform: translateY(-20px); opacity: 0; }
+}
+
+/* ── Status bar ─── */
+.login-status-bar {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 18px; padding-top: 14px;
+  border-top: 1px solid var(--dark-border);
+}
+.status-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--green-safe);
+  box-shadow: 0 0 5px rgba(0,255,136,0.5);
+  flex-shrink: 0;
+  animation: statusPulse 2s ease-in-out infinite;
+}
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+.status-text {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; letter-spacing: 1.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  flex: 1;
+}
+.status-time {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+/* ── Footer ─── */
+.login-footer {
+  margin-top: 20px; text-align: center;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; letter-spacing: 1.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  line-height: 1.8;
+}
+
+/* ── Reset-password modal ─── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.82);
+  z-index: 2000; align-items: center; justify-content: center;
+  padding: 24px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.modal-overlay.active { display: flex; }
+.modal-panel {
+  background: var(--dark-card);
+  border: 1px solid var(--dark-border-light);
+  border-radius: 8px; width: 100%; max-width: 360px;
+  padding: 24px; position: relative;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.8), 0 0 40px rgba(212,160,23,0.06);
+  animation: modalIn 0.25s ease;
+}
+@keyframes modalIn {
+  from { transform: scale(0.94) translateY(-10px); opacity: 0; }
+  to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+.modal-panel::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold-dim), var(--gold-dim), transparent);
+}
+.modal-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 10px; letter-spacing: 2.5px;
+  color: var(--gold); margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.modal-desc {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px; color: var(--text-secondary);
+  margin-bottom: 20px; line-height: 1.5;
+}
+.modal-close {
+  position: absolute; top: 14px; right: 14px;
+  background: none; border: none; cursor: pointer;
+  font-size: 16px; color: var(--text-muted); padding: 4px;
+  transition: color 0.15s;
+}
+.modal-close:hover { color: var(--text-primary); }
+.btn-modal-submit {
+  width: 100%;
+  background: rgba(212,160,23,0.08);
+  border: 1px solid rgba(212,160,23,0.3);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  font-family: 'Orbitron', monospace;
+  font-size: 9px; font-weight: 700; letter-spacing: 2px;
+  color: var(--gold); cursor: pointer;
+  transition: all 0.18s ease;
+  margin-top: 4px;
+}
+.btn-modal-submit:hover { background: rgba(212,160,23,0.16); border-color: rgba(212,160,23,0.5); }
+.btn-modal-cancel {
+  width: 100%;
+  background: none; border: none;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; letter-spacing: 1.5px;
+  color: var(--text-muted); cursor: pointer;
+  margin-top: 10px; padding: 4px;
+  transition: color 0.15s; text-transform: uppercase;
+}
+.btn-modal-cancel:hover { color: var(--text-secondary); }
+
+/* ── Responsive ─── */
+@media (max-width: 440px) {
+  .login-card { padding: 22px 18px 18px; }
+  .logo-title  { font-size: 18px; letter-spacing: 4px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Background layers -->
+<div class="bg-grid"></div>
+<div class="bg-radial"></div>
+<div class="scanline"></div>
+<div class="scan-beam"></div>
+<div class="corner corner-tl"></div>
+<div class="corner corner-tr"></div>
+<div class="corner corner-bl"></div>
+<div class="corner corner-br"></div>
+<div class="blip blip-1"></div>
+<div class="blip blip-2"></div>
+<div class="blip blip-3"></div>
+<div class="blip blip-4"></div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+<!-- Main login wrapper -->
+<div class="login-wrapper">
+
+  <!-- Logo / header -->
+  <div class="login-header">
+    <div class="logo-emblem">
+      <div class="logo-ring"></div>
+      <!-- Shield/target SVG -->
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L3 6v6c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V6L12 2zm0 4l6 2.7v4.5c0 3.6-2.55 7.05-6 8.1-3.45-1.05-6-4.5-6-8.1V8.7L12 6z"/>
+        <circle cx="12" cy="12" r="2"/>
+      </svg>
+    </div>
+    <div class="logo-title">NAIMOS</div>
+    <div class="logo-sub">Anti-Galamsey Smart Management System</div>
+    <span class="logo-classification">RESTRICTED ACCESS — AUTHORISED PERSONNEL ONLY</span>
+  </div>
+
+  <!-- Login card -->
+  <div class="login-card" id="login-card" role="main">
+    <div class="card-header">
+      <div class="card-header-dot"></div>
+      <div class="card-header-text">Secure Authentication Portal</div>
+      <div class="card-header-line"></div>
+    </div>
+
+    <form id="login-form" autocomplete="on" novalidate>
+
+      <!-- Username -->
+      <div class="form-group">
+        <label class="form-label" for="username">Operator ID</label>
+        <div class="input-wrapper">
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-secondary)">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+          </svg>
+          <input
+            type="text"
+            id="username"
+            name="username"
+            class="form-input"
+            placeholder="Enter operator ID"
+            autocomplete="username"
+            autocorrect="off"
+            autocapitalize="none"
+            spellcheck="false"
+            maxlength="64"
+            required
+            aria-required="true"
+            aria-describedby="username-error"
+          >
+        </div>
+        <span id="username-error" class="sr-only" role="alert"></span>
+      </div>
+
+      <!-- Password -->
+      <div class="form-group">
+        <label class="form-label" for="password">Access Code</label>
+        <div class="input-wrapper">
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-secondary)">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+          </svg>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            class="form-input"
+            placeholder="Enter access code"
+            autocomplete="current-password"
+            maxlength="128"
+            required
+            aria-required="true"
+            aria-describedby="password-error"
+          >
+          <button type="button" class="pwd-toggle" id="pwd-toggle" aria-label="Toggle password visibility">
+            <!-- Eye icon (show) -->
+            <svg id="eye-show" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <!-- Eye-slash icon (hide) -->
+            <svg id="eye-hide" viewBox="0 0 24 24" stroke-width="1.5" style="display:none"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
+          </button>
+        </div>
+        <span id="password-error" class="sr-only" role="alert"></span>
+      </div>
+
+      <!-- Remember me + Forgot password -->
+      <div class="form-extras">
+        <label class="remember-label">
+          <input type="checkbox" id="remember-me" class="remember-checkbox" name="remember">
+          Remember session
+        </label>
+        <button type="button" class="forgot-link" id="forgot-btn" aria-haspopup="dialog">
+          Reset password
+        </button>
+      </div>
+
+      <!-- Submit -->
+      <button type="submit" class="btn-login" id="btn-login">
+        <div class="btn-spinner" aria-hidden="true"></div>
+        <span class="btn-text">AUTHENTICATE</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+        </svg>
+      </button>
+    </form>
+
+    <!-- Status bar -->
+    <div class="login-status-bar">
+      <div class="status-dot"></div>
+      <div class="status-text" id="status-text">System operational · Awaiting credentials</div>
+      <div class="status-time" id="status-time"></div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="login-footer">
+    NAIMOS AMS v2.0 · Ghana EPA Operations Network<br>
+    Unauthorised access is a criminal offence
+  </div>
+</div>
+
+<!-- ── Reset Password Modal ──────────────────────────────────────────── -->
+<div class="modal-overlay" id="reset-modal" role="dialog" aria-modal="true" aria-labelledby="reset-modal-title">
+  <div class="modal-panel">
+    <button class="modal-close" id="modal-close-btn" aria-label="Close dialog">✕</button>
+    <div class="modal-title" id="reset-modal-title">Reset Access Code</div>
+    <p class="modal-desc">Enter your Operator ID. A secure reset token will be generated and dispatched to the system administrator.</p>
+
+    <div class="form-group">
+      <label class="form-label" for="reset-username">Operator ID</label>
+      <div class="input-wrapper">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-secondary)">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+        </svg>
+        <input
+          type="text"
+          id="reset-username"
+          class="form-input"
+          placeholder="Enter your operator ID"
+          maxlength="64"
+          autocomplete="username"
+          autocorrect="off"
+          autocapitalize="none"
+          spellcheck="false"
+        >
+      </div>
+    </div>
+
+    <!-- New password fields (shown after token entry) -->
+    <div id="reset-step-2" style="display:none">
+      <div class="form-group">
+        <label class="form-label" for="reset-token">Reset Token</label>
+        <div class="input-wrapper">
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-secondary)">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/>
+          </svg>
+          <input type="text" id="reset-token" class="form-input" placeholder="Paste reset token here" maxlength="200" spellcheck="false">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="new-password">New Access Code</label>
+        <div class="input-wrapper">
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-secondary)">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+          </svg>
+          <input type="password" id="new-password" class="form-input" placeholder="New access code (min 8 chars)" maxlength="128" autocomplete="new-password">
+        </div>
+      </div>
+    </div>
+
+    <button type="button" class="btn-modal-submit" id="reset-submit-btn">REQUEST RESET TOKEN</button>
+    <button type="button" class="btn-modal-cancel" id="modal-cancel-btn">Cancel</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── API base detection ────────────────────────────────────────────────────
+  var API_BASE = (
+    location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+  ) ? 'http://localhost:3001/api' : (location.origin + '/api');
+
+  // ── DOM refs ─────────────────────────────────────────────────────────────
+  var form        = document.getElementById('login-form');
+  var usernameEl  = document.getElementById('username');
+  var passwordEl  = document.getElementById('password');
+  var btnLogin    = document.getElementById('btn-login');
+  var statusText  = document.getElementById('status-text');
+  var statusTime  = document.getElementById('status-time');
+  var pwdToggle   = document.getElementById('pwd-toggle');
+  var eyeShow     = document.getElementById('eye-show');
+  var eyeHide     = document.getElementById('eye-hide');
+  var forgotBtn   = document.getElementById('forgot-btn');
+  var resetModal  = document.getElementById('reset-modal');
+  var modalClose  = document.getElementById('modal-close-btn');
+  var modalCancel = document.getElementById('modal-cancel-btn');
+  var resetSubmit = document.getElementById('reset-submit-btn');
+  var resetUser   = document.getElementById('reset-username');
+  var resetStep2  = document.getElementById('reset-step-2');
+  var resetToken  = document.getElementById('reset-token');
+  var newPassword = document.getElementById('new-password');
+  var toastContainer = document.getElementById('toast-container');
+  var resetStepOne   = true; // two-step reset flow
+
+  // ── Clock ─────────────────────────────────────────────────────────────────
+  function updateClock() {
+    var now = new Date();
+    var h = String(now.getUTCHours()).padStart(2,'0');
+    var m = String(now.getUTCMinutes()).padStart(2,'0');
+    var s = String(now.getUTCSeconds()).padStart(2,'0');
+    if (statusTime) statusTime.textContent = h + ':' + m + ':' + s + ' UTC';
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  function showToast(type, message, duration) {
+    duration = duration || 4000;
+    var icons = { error: '⚠', success: '✓', info: '◈' };
+    var toast = document.createElement('div');
+    toast.className = 'toast ' + type;
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML =
+      '<span class="toast-icon">' + (icons[type] || '●') + '</span>' +
+      '<span>' + escapeHtml(message) + '</span>';
+    toastContainer.appendChild(toast);
+    setTimeout(function () {
+      toast.style.animation = 'toastOut 0.3s ease forwards';
+      setTimeout(function () { toast.remove(); }, 300);
+    }, duration);
+  }
+
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  }
+
+  // ── Client-side input sanitization ───────────────────────────────────────
+  function sanitizeInput(val) {
+    return val.replace(/[<>'"&;]/g, '').trim();
+  }
+
+  // ── Password toggle ───────────────────────────────────────────────────────
+  if (pwdToggle) {
+    pwdToggle.addEventListener('click', function () {
+      var isPassword = passwordEl.type === 'password';
+      passwordEl.type = isPassword ? 'text' : 'password';
+      eyeShow.style.display = isPassword ? 'none' : 'block';
+      eyeHide.style.display = isPassword ? 'block' : 'none';
+      pwdToggle.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+    });
+  }
+
+  // ── Auth token management ─────────────────────────────────────────────────
+  function storeToken(token, remember) {
+    // Use sessionStorage by default; localStorage only if "remember session" checked.
+    try {
+      if (remember) {
+        localStorage.setItem('naimos_token', token);
+        sessionStorage.removeItem('naimos_token');
+      } else {
+        sessionStorage.setItem('naimos_token', token);
+        localStorage.removeItem('naimos_token');
+      }
+    } catch(e) {
+      // Storage may be blocked in some environments; fail gracefully
+      console.warn('[AUTH] Storage unavailable:', e.message);
+    }
+  }
+
+  function getToken() {
+    try {
+      return sessionStorage.getItem('naimos_token') || localStorage.getItem('naimos_token');
+    } catch(e) { return null; }
+  }
+
+  // ── Redirect if already authenticated ────────────────────────────────────
+  (function checkExistingSession() {
+    var token = getToken();
+    if (!token) return;
+    // Validate token against backend; redirect if valid
+    fetch(API_BASE + '/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + token },
+      signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined
+    })
+    .then(function(r) {
+      if (r.ok) {
+        statusText.textContent = 'Session active · Redirecting…';
+        window.location.replace('/dashboard.html');
+      }
+    })
+    .catch(function() { /* token invalid or backend down — stay on login page */ });
+  })();
+
+  // ── Login form submit ─────────────────────────────────────────────────────
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      var username = sanitizeInput(usernameEl.value);
+      var password = passwordEl.value.trim().slice(0, 128);
+      var remember = document.getElementById('remember-me').checked;
+
+      // Client-side validation
+      usernameEl.classList.remove('input-error');
+      passwordEl.classList.remove('input-error');
+
+      if (!username) {
+        usernameEl.classList.add('input-error');
+        usernameEl.focus();
+        showToast('error', 'Operator ID is required.');
+        return;
+      }
+      if (!password) {
+        passwordEl.classList.add('input-error');
+        passwordEl.focus();
+        showToast('error', 'Access code is required.');
+        return;
+      }
+
+      // UI: loading state
+      btnLogin.disabled = true;
+      btnLogin.classList.add('loading');
+      statusText.textContent = 'Authenticating · Verifying credentials…';
+
+      fetch(API_BASE + '/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept':        'application/json',
+        },
+        body: JSON.stringify({ username: username, password: password }),
+        credentials: 'same-origin',
+        signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined
+      })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          return { status: res.status, data: data };
+        });
+      })
+      .then(function (result) {
+        btnLogin.disabled = false;
+        btnLogin.classList.remove('loading');
+
+        if (result.status === 200 && result.data.token) {
+          storeToken(result.data.token, remember);
+          statusText.textContent = 'Authentication successful · Loading dashboard…';
+          showToast('success', 'Access granted. Loading NAIMOS command centre…', 2000);
+          setTimeout(function () {
+            window.location.replace('/index.html');
+          }, 800);
+        } else if (result.status === 401) {
+          usernameEl.classList.add('input-error');
+          passwordEl.classList.add('input-error');
+          statusText.textContent = 'Authentication failed · Credentials rejected';
+          showToast('error', 'Incorrect username or password.');
+          passwordEl.value = '';
+          passwordEl.focus();
+        } else if (result.status === 429) {
+          statusText.textContent = 'Account locked · Excessive failed attempts';
+          showToast('error', result.data.error || 'Account temporarily locked. Try again later.', 7000);
+        } else {
+          statusText.textContent = 'Authentication error · Please retry';
+          showToast('error', result.data.error || 'Authentication failed. Please try again.');
+        }
+      })
+      .catch(function (err) {
+        btnLogin.disabled = false;
+        btnLogin.classList.remove('loading');
+        statusText.textContent = 'Connection error · Backend unreachable';
+        showToast('error', 'Connection error. Check network and try again.');
+        console.error('[NAIMOS] Login error:', err);
+      });
+    });
+  }
+
+  // ── Forgot / Reset Password modal ────────────────────────────────────────
+  function openResetModal() {
+    resetModal.classList.add('active');
+    resetUser.focus();
+    document.addEventListener('keydown', onModalKeydown);
+  }
+  function closeResetModal() {
+    resetModal.classList.remove('active');
+    resetStepOne = true;
+    resetStep2.style.display = 'none';
+    resetSubmit.textContent  = 'REQUEST RESET TOKEN';
+    resetUser.value   = '';
+    resetToken.value  = '';
+    newPassword.value = '';
+    document.removeEventListener('keydown', onModalKeydown);
+  }
+  function onModalKeydown(e) {
+    if (e.key === 'Escape') closeResetModal();
+  }
+
+  if (forgotBtn)   forgotBtn.addEventListener('click',   openResetModal);
+  if (modalClose)  modalClose.addEventListener('click',  closeResetModal);
+  if (modalCancel) modalCancel.addEventListener('click', closeResetModal);
+
+  // Close on overlay click
+  if (resetModal) {
+    resetModal.addEventListener('click', function(e) {
+      if (e.target === resetModal) closeResetModal();
+    });
+  }
+
+  if (resetSubmit) {
+    resetSubmit.addEventListener('click', function() {
+      if (resetStepOne) {
+        // Step 1: request token
+        var uname = sanitizeInput(resetUser.value);
+        if (!uname) { showToast('error', 'Please enter your Operator ID.'); return; }
+
+        resetSubmit.textContent = 'REQUESTING…';
+        resetSubmit.disabled    = true;
+
+        fetch(API_BASE + '/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: uname }),
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          resetSubmit.disabled = false;
+          showToast('info', data.message || 'If that account exists, a reset token has been generated.');
+          // Reveal step 2 for token entry
+          resetStep2.style.display = 'block';
+          resetSubmit.textContent  = 'SET NEW ACCESS CODE';
+          resetStepOne = false;
+          resetToken.focus();
+        })
+        .catch(function() {
+          resetSubmit.disabled    = false;
+          resetSubmit.textContent = 'REQUEST RESET TOKEN';
+          showToast('error', 'Network error. Please try again.');
+        });
+
+      } else {
+        // Step 2: set new password
+        var token   = resetToken.value.trim();
+        var newPwd  = newPassword.value.trim();
+        if (!token)  { showToast('error', 'Please enter the reset token.'); return; }
+        if (!newPwd || newPwd.length < 8) {
+          showToast('error', 'New access code must be at least 8 characters.');
+          return;
+        }
+
+        resetSubmit.textContent = 'UPDATING…';
+        resetSubmit.disabled    = true;
+
+        fetch(API_BASE + '/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resetToken: token, newPassword: newPwd }),
+        })
+        .then(function(r) { return r.json().then(function(d) { return { status: r.status, data: d }; }); })
+        .then(function(result) {
+          resetSubmit.disabled = false;
+          if (result.status === 200) {
+            showToast('success', 'Access code updated. You can now log in.', 5000);
+            closeResetModal();
+          } else {
+            resetSubmit.textContent = 'SET NEW ACCESS CODE';
+            showToast('error', result.data.error || 'Reset failed. Check your token and try again.');
+          }
+        })
+        .catch(function() {
+          resetSubmit.disabled    = false;
+          resetSubmit.textContent = 'SET NEW ACCESS CODE';
+          showToast('error', 'Network error. Please try again.');
+        });
+      }
+    });
+  }
+
+  // ── Keyboard: Enter submits reset modal step ──────────────────────────────
+  [resetUser, resetToken, newPassword].forEach(function(el) {
+    if (el) el.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') resetSubmit.click();
+    });
+  });
+
+})();
+</script>
+
+</body>
+</html>
