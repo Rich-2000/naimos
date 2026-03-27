@@ -1,81 +1,84 @@
-
+/**
+ * ============================================================
+ *  NAIMOS AMS — Client-Side Auth Guard
+ *  Paste this as the VERY FIRST <script> block inside <head>
+ *  in your index.html (before any other scripts).
+ *
+ *  It will redirect unauthenticated users to login.html
+ *  before the rest of the page loads, preventing any flash
+ *  of protected content.
+ * ============================================================
+ */
 (function () {
   'use strict';
 
-  var PUBLIC_PATHS = ['/', '/login.html', '/reset-password.html', '/forgot-password.html'];
+  var PUBLIC_PATHS = ['/login.html', '/reset-password.html'];
   var currentPath  = window.location.pathname;
 
-  if (PUBLIC_PATHS.some(function (p) {
-    return currentPath === p || currentPath.endsWith(p);
-  })) {
+  // Do not guard the login page itself
+  if (PUBLIC_PATHS.some(function(p) { return currentPath === p || currentPath.endsWith(p); })) {
     return;
   }
 
+  // Read token from storage
   var token = null;
   try {
     token = sessionStorage.getItem('naimos_token') || localStorage.getItem('naimos_token');
-  } catch (e) { /* storage may be blocked */ }
+  } catch (e) { /* blocked storage */ }
 
   if (!token) {
+    // No token — redirect immediately (no flash of protected content)
     window.location.replace('/login.html');
     return;
   }
 
-  // JWT expiry check (client-side early-exit only — server validates properly)
+  // Optionally: basic JWT expiry check without a library
   try {
     var parts   = token.split('.');
     var payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
     if (payload.exp && Date.now() / 1000 > payload.exp) {
-      try { sessionStorage.removeItem('naimos_token'); localStorage.removeItem('naimos_token'); } catch (e) {}
+      // Token expired — clear and redirect
+      try { sessionStorage.removeItem('naimos_token'); localStorage.removeItem('naimos_token'); } catch(e){}
       window.location.replace('/login.html');
       return;
     }
   } catch (e) {
-    try { sessionStorage.removeItem('naimos_token'); localStorage.removeItem('naimos_token'); } catch (e) {}
+    // Malformed token — redirect
+    try { sessionStorage.removeItem('naimos_token'); localStorage.removeItem('naimos_token'); } catch(e){}
     window.location.replace('/login.html');
     return;
   }
 
+  // Token looks valid — expose it for API calls
   window.NAIMOS_TOKEN = token;
 
-  // Patch fetch — ONLY inject Authorization for our own /api/* endpoints
+  // ── Attach token to all fetch calls automatically ──────────────────────────
   var _origFetch = window.fetch.bind(window);
-
   window.fetch = function (url, opts) {
     opts = opts || {};
+    opts.headers = opts.headers || {};
 
-    var urlStr = typeof url === 'string'
-               ? url
-               : url instanceof Request
-               ? url.url
-               : String(url);
-
-    var isOurAPI = urlStr.startsWith('/api/')
-                || urlStr.startsWith(window.location.origin + '/api/')
-                || urlStr.startsWith('http://localhost:3001/api/')
-                || urlStr.startsWith('http://127.0.0.1:3001/api/');
-
-    if (isOurAPI && window.NAIMOS_TOKEN) {
+    // Only inject for same-origin or our own API
+    var urlStr = typeof url === 'string' ? url : (url.url || '');
+    var isSameOrigin = urlStr.startsWith('/') || urlStr.startsWith(window.location.origin);
+    if (isSameOrigin && window.NAIMOS_TOKEN) {
       if (opts.headers instanceof Headers) {
-        var h = new Headers(opts.headers);
-        if (!h.has('Authorization')) h.set('Authorization', 'Bearer ' + window.NAIMOS_TOKEN);
-        opts = Object.assign({}, opts, { headers: h });
-      } else {
-        var plainHeaders = Object.assign({}, opts.headers || {});
-        if (!plainHeaders['Authorization']) {
-          plainHeaders['Authorization'] = 'Bearer ' + window.NAIMOS_TOKEN;
+        if (!opts.headers.has('Authorization')) {
+          opts.headers.set('Authorization', 'Bearer ' + window.NAIMOS_TOKEN);
         }
-        opts = Object.assign({}, opts, { headers: plainHeaders });
+      } else {
+        opts.headers['Authorization'] = opts.headers['Authorization'] || ('Bearer ' + window.NAIMOS_TOKEN);
       }
     }
+    return _origFetch(url, opts);
+  };
 
-    return _origFetch(url, opts).then(function (response) {
-      // Only redirect on 401 from OUR API — never from Sentinel Hub, FIRMS, etc.
-      if (response.status === 401 && isOurAPI) {
-        try {
-          sessionStorage.removeItem('naimos_token');
-          localStorage.removeItem('naimos_token');
-        } catch (e) {}
+  // ── Auto-logout on 401 responses ──────────────────────────────────────────
+  var _origFetch2 = window.fetch.bind(window);
+  window.fetch = function (url, opts) {
+    return _origFetch2(url, opts).then(function (response) {
+      if (response.status === 401) {
+        try { sessionStorage.removeItem('naimos_token'); localStorage.removeItem('naimos_token'); } catch(e){}
         window.location.replace('/login.html');
       }
       return response;
