@@ -23,7 +23,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 const MONGODB_URI = process.env.MONGODB_URI ||
-  'mongodb+srv://jane:024178Ri@cluster0.63napqx.mongodb.net/naimos?appName=Cluster0';
+  '';
 
 const BCRYPT_ROUNDS = 14;
 
