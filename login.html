@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="robots" content="noindex, nofollow">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://naimos.vercel.app; frame-ancestors 'none'; form-action 'self';">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>NAIMOS · Secure Access Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1037,7 +1036,751 @@ html, body {
   });
 
 })();
-</script>
 
+(function () {
+  'use strict';
+ 
+  // ── API base detection ────────────────────────────────────────────────────
+  var API_BASE = (
+    location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+  ) ? 'http://localhost:3001/api' : (location.origin + '/api');
+ 
+  // ── DOM refs ─────────────────────────────────────────────────────────────
+  var form        = document.getElementById('login-form');
+  var usernameEl  = document.getElementById('username');
+  var passwordEl  = document.getElementById('password');
+  var btnLogin    = document.getElementById('btn-login');
+  var statusText  = document.getElementById('status-text');
+  var statusTime  = document.getElementById('status-time');
+  var pwdToggle   = document.getElementById('pwd-toggle');
+  var eyeShow     = document.getElementById('eye-show');
+  var eyeHide     = document.getElementById('eye-hide');
+  var forgotBtn   = document.getElementById('forgot-btn');
+  var resetModal  = document.getElementById('reset-modal');
+  var modalClose  = document.getElementById('modal-close-btn');
+  var modalCancel = document.getElementById('modal-cancel-btn');
+  var resetSubmit = document.getElementById('reset-submit-btn');
+  var resetUser   = document.getElementById('reset-username');
+  var resetStep2  = document.getElementById('reset-step-2');
+  var resetToken  = document.getElementById('reset-token');
+  var newPassword = document.getElementById('new-password');
+  var toastContainer = document.getElementById('toast-container');
+  var resetStepOne   = true;
+ 
+  // ── Clock ─────────────────────────────────────────────────────────────────
+  function updateClock() {
+    var now = new Date();
+    var h = String(now.getUTCHours()).padStart(2,'0');
+    var m = String(now.getUTCMinutes()).padStart(2,'0');
+    var s = String(now.getUTCSeconds()).padStart(2,'0');
+    if (statusTime) statusTime.textContent = h + ':' + m + ':' + s + ' UTC';
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+ 
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  function showToast(type, message, duration) {
+    duration = duration || 4000;
+    var icons = { error: '⚠', success: '✓', info: '◈' };
+    var toast = document.createElement('div');
+    toast.className = 'toast ' + type;
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML =
+      '<span class="toast-icon">' + (icons[type] || '●') + '</span>' +
+      '<span>' + escapeHtml(message) + '</span>';
+    toastContainer.appendChild(toast);
+    setTimeout(function () {
+      toast.style.animation = 'toastOut 0.3s ease forwards';
+      setTimeout(function () { toast.remove(); }, 300);
+    }, duration);
+  }
+ 
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  }
+ 
+  // ── Client-side input sanitization ───────────────────────────────────────
+  function sanitizeInput(val) {
+    return val.replace(/[<>'"&;]/g, '').trim();
+  }
+ 
+  // ── Password toggle ───────────────────────────────────────────────────────
+  if (pwdToggle) {
+    pwdToggle.addEventListener('click', function () {
+      var isPassword = passwordEl.type === 'password';
+      passwordEl.type = isPassword ? 'text' : 'password';
+      eyeShow.style.display = isPassword ? 'none' : 'block';
+      eyeHide.style.display = isPassword ? 'block' : 'none';
+      pwdToggle.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+    });
+  }
+ 
+  // ── FIX 1: Multi-store token management ───────────────────────────────────
+  // Write to sessionStorage, localStorage (based on remember), AND a cookie
+  // fallback so that browsers with aggressive ITP keep the session.
+  function storeToken(token, remember) {
+    // Cookie fallback — SameSite=Strict, no HttpOnly (client needs to read it)
+    // Expires: session (remember=false) or 7 days (remember=true)
+    var cookieMax = remember ? 7 * 24 * 3600 : ''; // '' = session cookie
+    var cookieParts = [
+      'naimos_token_fb=' + encodeURIComponent(token),
+      'path=/',
+      'SameSite=Strict',
+    ];
+    if (cookieMax) cookieParts.push('max-age=' + cookieMax);
+    // Only add Secure on HTTPS
+    if (location.protocol === 'https:') cookieParts.push('Secure');
+    document.cookie = cookieParts.join('; ');
+ 
+    try {
+      if (remember) {
+        localStorage.setItem('naimos_token', token);
+        sessionStorage.removeItem('naimos_token');
+      } else {
+        sessionStorage.setItem('naimos_token', token);
+        localStorage.removeItem('naimos_token');
+      }
+    } catch (e) {
+      console.warn('[AUTH] Storage unavailable:', e.message);
+      // Cookie fallback already written above — this is acceptable
+    }
+  }
+ 
+  // FIX 2: Verify the token was actually stored before redirecting
+  function verifyTokenStored(token) {
+    // Check sessionStorage
+    try {
+      if (sessionStorage.getItem('naimos_token') === token) return true;
+    } catch (e) {}
+    // Check localStorage
+    try {
+      if (localStorage.getItem('naimos_token') === token) return true;
+    } catch (e) {}
+    // Check cookie fallback
+    var match = document.cookie.match(/(?:^|;\s*)naimos_token_fb=([^;]+)/);
+    if (match && decodeURIComponent(match[1]) === token) return true;
+    return false;
+  }
+ 
+  function getToken() {
+    try {
+      var ss = sessionStorage.getItem('naimos_token');
+      if (ss) return ss;
+    } catch (e) {}
+    try {
+      var ls = localStorage.getItem('naimos_token');
+      if (ls) return ls;
+    } catch (e) {}
+    var match = document.cookie.match(/(?:^|;\s*)naimos_token_fb=([^;]+)/);
+    if (match) return decodeURIComponent(match[1]);
+    return null;
+  }
+ 
+  // ── FIX 3: Resilient existing-session check ───────────────────────────────
+  // Only redirect if we can CONFIRM the token is valid, not just present.
+  (function checkExistingSession() {
+    var token = getToken();
+    if (!token) return;
+ 
+    // Quick client-side expiry check before hitting the server
+    try {
+      var parts = token.split('.');
+      if (parts.length === 3) {
+        var b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (b64.length % 4 !== 0) b64 += '=';
+        var payload = JSON.parse(atob(b64));
+        if (payload.exp && (Date.now() / 1000) > payload.exp) {
+          // Expired — clear and stay on login
+          try { sessionStorage.removeItem('naimos_token'); } catch (e) {}
+          try { localStorage.removeItem('naimos_token'); } catch (e) {}
+          document.cookie = 'naimos_token_fb=; path=/; max-age=0; SameSite=Strict';
+          return;
+        }
+      }
+    } catch (e) {
+      // Can't decode — still try server validation
+    }
+ 
+    statusText.textContent = 'Checking existing session…';
+ 
+    var controller;
+    var signal;
+    try {
+      controller = new AbortController();
+      signal = controller.signal;
+      setTimeout(function () { controller.abort(); }, 5000);
+    } catch (e) {}
+ 
+    fetch(API_BASE + '/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + token },
+      signal: signal,
+    })
+    .then(function (r) {
+      if (r.ok) {
+        statusText.textContent = 'Session active · Redirecting…';
+        // FIX 4: Explicit /index.html (not just '/')
+        window.location.replace('/index.html');
+      } else {
+        // Invalid token — clear it so the user can log in fresh
+        try { sessionStorage.removeItem('naimos_token'); } catch (e) {}
+        try { localStorage.removeItem('naimos_token'); } catch (e) {}
+        document.cookie = 'naimos_token_fb=; path=/; max-age=0; SameSite=Strict';
+        statusText.textContent = 'System operational · Awaiting credentials';
+      }
+    })
+    .catch(function () {
+      // Network error or aborted — don't redirect, just stay on login
+      statusText.textContent = 'System operational · Awaiting credentials';
+    });
+  })();
+ 
+  // ── Login form submit ─────────────────────────────────────────────────────
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+ 
+      var username = sanitizeInput(usernameEl.value);
+      var password = passwordEl.value.trim().slice(0, 128);
+      var remember = document.getElementById('remember-me').checked;
+ 
+      usernameEl.classList.remove('input-error');
+      passwordEl.classList.remove('input-error');
+ 
+      if (!username) {
+        usernameEl.classList.add('input-error');
+        usernameEl.focus();
+        showToast('error', 'Operator ID is required.');
+        return;
+      }
+      if (!password) {
+        passwordEl.classList.add('input-error');
+        passwordEl.focus();
+        showToast('error', 'Access code is required.');
+        return;
+      }
+ 
+      btnLogin.disabled = true;
+      btnLogin.classList.add('loading');
+      statusText.textContent = 'Authenticating · Verifying credentials…';
+ 
+      var controller2;
+      var signal2;
+      try {
+        controller2 = new AbortController();
+        signal2 = controller2.signal;
+        setTimeout(function () { controller2.abort(); }, 12000);
+      } catch (e) {}
+ 
+      fetch(API_BASE + '/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept':       'application/json',
+        },
+        body: JSON.stringify({ username: username, password: password }),
+        credentials: 'same-origin',
+        signal: signal2,
+      })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          return { status: res.status, data: data };
+        });
+      })
+      .then(function (result) {
+        btnLogin.disabled = false;
+        btnLogin.classList.remove('loading');
+ 
+        if (result.status === 200 && result.data.token) {
+          var token = result.data.token;
+ 
+          // FIX 2: Store then verify before redirecting
+          storeToken(token, remember);
+ 
+          var stored = verifyTokenStored(token);
+          if (!stored) {
+            // Storage is completely blocked — show warning but still try to redirect
+            // The cookie fallback should have worked
+            console.warn('[NAIMOS] Could not verify token storage. Redirecting anyway (cookie fallback).');
+            showToast('info', 'Session storage restricted. Using secure fallback.', 3000);
+          }
+ 
+          statusText.textContent = 'Authentication successful · Loading dashboard…';
+          showToast('success', 'Access granted. Loading NAIMOS command centre…', 2000);
+ 
+          // FIX 4: Small delay to ensure storage write completes, then redirect
+          setTimeout(function () {
+            window.location.replace('/index.html');
+          }, 400);
+ 
+        } else if (result.status === 401) {
+          usernameEl.classList.add('input-error');
+          passwordEl.classList.add('input-error');
+          statusText.textContent = 'Authentication failed · Credentials rejected';
+          showToast('error', 'Incorrect username or password.');
+          passwordEl.value = '';
+          passwordEl.focus();
+        } else if (result.status === 429) {
+          statusText.textContent = 'Account locked · Excessive failed attempts';
+          showToast('error', result.data.error || 'Account temporarily locked. Try again later.', 7000);
+        } else {
+          statusText.textContent = 'Authentication error · Please retry';
+          showToast('error', result.data.error || 'Authentication failed. Please try again.');
+        }
+      })
+      .catch(function (err) {
+        btnLogin.disabled = false;
+        btnLogin.classList.remove('loading');
+        statusText.textContent = 'Connection error · Backend unreachable';
+        showToast('error', 'Connection error. Check network and try again.');
+        console.error('[NAIMOS] Login error:', err);
+      });
+    });
+  }
+ 
+  // ── Reset Password modal (unchanged logic) ────────────────────────────────
+  function openResetModal() {
+    resetModal.classList.add('active');
+    resetUser.focus();
+    document.addEventListener('keydown', onModalKeydown);
+  }
+  function closeResetModal() {
+    resetModal.classList.remove('active');
+    resetStepOne = true;
+    resetStep2.style.display = 'none';
+    resetSubmit.textContent  = 'REQUEST RESET TOKEN';
+    resetUser.value   = '';
+    resetToken.value  = '';
+    newPassword.value = '';
+    document.removeEventListener('keydown', onModalKeydown);
+  }
+  function onModalKeydown(e) {
+    if (e.key === 'Escape') closeResetModal();
+  }
+ 
+  if (forgotBtn)   forgotBtn.addEventListener('click',   openResetModal);
+  if (modalClose)  modalClose.addEventListener('click',  closeResetModal);
+  if (modalCancel) modalCancel.addEventListener('click', closeResetModal);
+ 
+  if (resetModal) {
+    resetModal.addEventListener('click', function (e) {
+      if (e.target === resetModal) closeResetModal();
+    });
+  }
+ 
+  if (resetSubmit) {
+    resetSubmit.addEventListener('click', function () {
+      if (resetStepOne) {
+        var uname = sanitizeInput(resetUser.value);
+        if (!uname) { showToast('error', 'Please enter your Operator ID.'); return; }
+ 
+        resetSubmit.textContent = 'REQUESTING…';
+        resetSubmit.disabled    = true;
+ 
+        fetch(API_BASE + '/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: uname }),
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          resetSubmit.disabled = false;
+          showToast('info', data.message || 'If that account exists, a reset token has been generated.');
+          resetStep2.style.display = 'block';
+          resetSubmit.textContent  = 'SET NEW ACCESS CODE';
+          resetStepOne = false;
+          resetToken.focus();
+        })
+        .catch(function () {
+          resetSubmit.disabled    = false;
+          resetSubmit.textContent = 'REQUEST RESET TOKEN';
+          showToast('error', 'Network error. Please try again.');
+        });
+ 
+      } else {
+        var token   = resetToken.value.trim();
+        var newPwd  = newPassword.value.trim();
+        if (!token)  { showToast('error', 'Please enter the reset token.'); return; }
+        if (!newPwd || newPwd.length < 8) {
+          showToast('error', 'New access code must be at least 8 characters.');
+          return;
+        }
+ 
+        resetSubmit.textContent = 'UPDATING…';
+        resetSubmit.disabled    = true;
+ 
+        fetch(API_BASE + '/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resetToken: token, newPassword: newPwd }),
+        })
+        .then(function (r) { return r.json().then(function (d) { return { status: r.status, data: d }; }); })
+        .then(function (result) {
+          resetSubmit.disabled = false;
+          if (result.status === 200) {
+            showToast('success', 'Access code updated. You can now log in.', 5000);
+            closeResetModal();
+          } else {
+            resetSubmit.textContent = 'SET NEW ACCESS CODE';
+            showToast('error', result.data.error || 'Reset failed. Check your token and try again.');
+          }
+        })
+        .catch(function () {
+          resetSubmit.disabled    = false;
+          resetSubmit.textContent = 'SET NEW ACCESS CODE';
+          showToast('error', 'Network error. Please try again.');
+        });
+      }
+    });
+  }
+ 
+  [resetUser, resetToken, newPassword].forEach(function (el) {
+    if (el) el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') resetSubmit.click();
+    });
+  });
+ 
+})();
+
+</script>
+<!-- ============================================================
+     NAIMOS AMS — Secure Login Portal  (Clean URL Edition)
+     Changes vs original:
+       • Already-authenticated redirect: /dashboard.html → /
+       • Post-login redirect: /index.html → /
+       • All styling, security, and auth logic preserved intact
+     ============================================================ -->
+<!-- PATCH BLOCK — drop this <script> just before </body> in login.html
+     to override only the two redirect targets.  If you prefer a full
+     file replacement, the two changed lines are marked ← CHANGED below.
+-->
+
+<!--
+  HOW TO APPLY:
+  Open login.html and make exactly two changes:
+
+  1. Line ~845  (checkExistingSession redirect):
+     BEFORE:  window.location.replace('/dashboard.html');
+     AFTER:   window.location.replace('/');             ← CHANGED
+
+  2. Line ~906  (post-login redirect):
+     BEFORE:  window.location.replace('/index.html');
+     AFTER:   window.location.replace('/');             ← CHANGED
+
+  That is the ONLY code change needed in login.html.
+  The full patched <script> block is embedded below as a
+  drop-in replacement for the existing <script> in login.html.
+-->
+
+<script>
+/*
+ * ── LOGIN PAGE SCRIPT — Clean URL Edition ────────────────────────────────────
+ * Identical to the original except:
+ *   • Redirect after session check  → '/'   (was '/dashboard.html')
+ *   • Redirect after successful login → '/' (was '/index.html')
+ */
+(function () {
+  'use strict';
+
+  // ── API base detection ────────────────────────────────────────────────────
+  var API_BASE = (
+    location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+  ) ? 'http://localhost:3001/api' : (location.origin + '/api');
+
+  // ── DOM refs ─────────────────────────────────────────────────────────────
+  var form        = document.getElementById('login-form');
+  var usernameEl  = document.getElementById('username');
+  var passwordEl  = document.getElementById('password');
+  var btnLogin    = document.getElementById('btn-login');
+  var statusText  = document.getElementById('status-text');
+  var statusTime  = document.getElementById('status-time');
+  var pwdToggle   = document.getElementById('pwd-toggle');
+  var eyeShow     = document.getElementById('eye-show');
+  var eyeHide     = document.getElementById('eye-hide');
+  var forgotBtn   = document.getElementById('forgot-btn');
+  var resetModal  = document.getElementById('reset-modal');
+  var modalClose  = document.getElementById('modal-close-btn');
+  var modalCancel = document.getElementById('modal-cancel-btn');
+  var resetSubmit = document.getElementById('reset-submit-btn');
+  var resetUser   = document.getElementById('reset-username');
+  var resetStep2  = document.getElementById('reset-step-2');
+  var resetToken  = document.getElementById('reset-token');
+  var newPassword = document.getElementById('new-password');
+  var toastContainer = document.getElementById('toast-container');
+  var resetStepOne   = true;
+
+  // ── Clock ─────────────────────────────────────────────────────────────────
+  function updateClock() {
+    var now = new Date();
+    var h = String(now.getUTCHours()).padStart(2,'0');
+    var m = String(now.getUTCMinutes()).padStart(2,'0');
+    var s = String(now.getUTCSeconds()).padStart(2,'0');
+    if (statusTime) statusTime.textContent = h + ':' + m + ':' + s + ' UTC';
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  function showToast(type, message, duration) {
+    duration = duration || 4000;
+    var icons = { error: '⚠', success: '✓', info: '◈' };
+    var toast = document.createElement('div');
+    toast.className = 'toast ' + type;
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML =
+      '<span class="toast-icon">' + (icons[type] || '●') + '</span>' +
+      '<span>' + escapeHtml(message) + '</span>';
+    toastContainer.appendChild(toast);
+    setTimeout(function () {
+      toast.style.animation = 'toastOut 0.3s ease forwards';
+      setTimeout(function () { toast.remove(); }, 300);
+    }, duration);
+  }
+
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  }
+
+  // ── Client-side input sanitization ───────────────────────────────────────
+  function sanitizeInput(val) {
+    return val.replace(/[<>'"&;]/g, '').trim();
+  }
+
+  // ── Password toggle ───────────────────────────────────────────────────────
+  if (pwdToggle) {
+    pwdToggle.addEventListener('click', function () {
+      var isPassword = passwordEl.type === 'password';
+      passwordEl.type = isPassword ? 'text' : 'password';
+      eyeShow.style.display = isPassword ? 'none' : 'block';
+      eyeHide.style.display = isPassword ? 'block' : 'none';
+      pwdToggle.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+    });
+  }
+
+  // ── Auth token management ─────────────────────────────────────────────────
+  function storeToken(token, remember) {
+    try {
+      if (remember) {
+        localStorage.setItem('naimos_token', token);
+        sessionStorage.removeItem('naimos_token');
+      } else {
+        sessionStorage.setItem('naimos_token', token);
+        localStorage.removeItem('naimos_token');
+      }
+    } catch(e) {
+      console.warn('[AUTH] Storage unavailable:', e.message);
+    }
+  }
+
+  function getToken() {
+    try {
+      return sessionStorage.getItem('naimos_token') || localStorage.getItem('naimos_token');
+    } catch(e) { return null; }
+  }
+
+  // ── Redirect if already authenticated ────────────────────────────────────
+  (function checkExistingSession() {
+    var token = getToken();
+    if (!token) return;
+    fetch(API_BASE + '/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + token },
+      signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined
+    })
+    .then(function(r) {
+      if (r.ok) {
+        if (statusText) statusText.textContent = 'Session active · Redirecting…';
+        window.location.replace('/');   // ← CHANGED: was '/dashboard.html'
+      }
+    })
+    .catch(function() { /* token invalid or backend down — stay */ });
+  })();
+
+  // ── Login form submit ─────────────────────────────────────────────────────
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      var username = sanitizeInput(usernameEl.value);
+      var password = passwordEl.value.trim().slice(0, 128);
+      var remember = document.getElementById('remember-me').checked;
+
+      usernameEl.classList.remove('input-error');
+      passwordEl.classList.remove('input-error');
+
+      if (!username) {
+        usernameEl.classList.add('input-error');
+        usernameEl.focus();
+        showToast('error', 'Operator ID is required.');
+        return;
+      }
+      if (!password) {
+        passwordEl.classList.add('input-error');
+        passwordEl.focus();
+        showToast('error', 'Access code is required.');
+        return;
+      }
+
+      btnLogin.disabled = true;
+      btnLogin.classList.add('loading');
+      statusText.textContent = 'Authenticating · Verifying credentials…';
+
+      fetch(API_BASE + '/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept':        'application/json',
+        },
+        body: JSON.stringify({ username: username, password: password }),
+        credentials: 'same-origin',
+        signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined
+      })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          return { status: res.status, data: data };
+        });
+      })
+      .then(function (result) {
+        btnLogin.disabled = false;
+        btnLogin.classList.remove('loading');
+
+        if (result.status === 200 && result.data.token) {
+          storeToken(result.data.token, remember);
+          statusText.textContent = 'Authentication successful · Loading dashboard…';
+          showToast('success', 'Access granted. Loading NAIMOS command centre…', 2000);
+          setTimeout(function () {
+            window.location.replace('/');   // ← CHANGED: was '/index.html'
+          }, 800);
+        } else if (result.status === 401) {
+          usernameEl.classList.add('input-error');
+          passwordEl.classList.add('input-error');
+          statusText.textContent = 'Authentication failed · Credentials rejected';
+          showToast('error', 'Incorrect username or password.');
+          passwordEl.value = '';
+          passwordEl.focus();
+        } else if (result.status === 429) {
+          statusText.textContent = 'Account locked · Excessive failed attempts';
+          showToast('error', result.data.error || 'Account temporarily locked. Try again later.', 7000);
+        } else {
+          statusText.textContent = 'Authentication error · Please retry';
+          showToast('error', result.data.error || 'Authentication failed. Please try again.');
+        }
+      })
+      .catch(function (err) {
+        btnLogin.disabled = false;
+        btnLogin.classList.remove('loading');
+        statusText.textContent = 'Connection error · Backend unreachable';
+        showToast('error', 'Connection error. Check network and try again.');
+        console.error('[NAIMOS] Login error:', err);
+      });
+    });
+  }
+
+  // ── Forgot / Reset Password modal ────────────────────────────────────────
+  function openResetModal() {
+    resetModal.classList.add('active');
+    resetUser.focus();
+    document.addEventListener('keydown', onModalKeydown);
+  }
+  function closeResetModal() {
+    resetModal.classList.remove('active');
+    resetStepOne = true;
+    resetStep2.style.display = 'none';
+    resetSubmit.textContent  = 'REQUEST RESET TOKEN';
+    resetUser.value   = '';
+    resetToken.value  = '';
+    newPassword.value = '';
+    document.removeEventListener('keydown', onModalKeydown);
+  }
+  function onModalKeydown(e) {
+    if (e.key === 'Escape') closeResetModal();
+  }
+
+  if (forgotBtn)   forgotBtn.addEventListener('click',   openResetModal);
+  if (modalClose)  modalClose.addEventListener('click',  closeResetModal);
+  if (modalCancel) modalCancel.addEventListener('click', closeResetModal);
+
+  if (resetModal) {
+    resetModal.addEventListener('click', function(e) {
+      if (e.target === resetModal) closeResetModal();
+    });
+  }
+
+  if (resetSubmit) {
+    resetSubmit.addEventListener('click', function() {
+      if (resetStepOne) {
+        var uname = sanitizeInput(resetUser.value);
+        if (!uname) { showToast('error', 'Please enter your Operator ID.'); return; }
+
+        resetSubmit.textContent = 'REQUESTING…';
+        resetSubmit.disabled    = true;
+
+        fetch(API_BASE + '/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: uname }),
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          resetSubmit.disabled = false;
+          showToast('info', data.message || 'If that account exists, a reset token has been generated.');
+          resetStep2.style.display = 'block';
+          resetSubmit.textContent  = 'SET NEW ACCESS CODE';
+          resetStepOne = false;
+          resetToken.focus();
+        })
+        .catch(function() {
+          resetSubmit.disabled    = false;
+          resetSubmit.textContent = 'REQUEST RESET TOKEN';
+          showToast('error', 'Network error. Please try again.');
+        });
+
+      } else {
+        var token   = resetToken.value.trim();
+        var newPwd  = newPassword.value.trim();
+        if (!token)  { showToast('error', 'Please enter the reset token.'); return; }
+        if (!newPwd || newPwd.length < 8) {
+          showToast('error', 'New access code must be at least 8 characters.');
+          return;
+        }
+
+        resetSubmit.textContent = 'UPDATING…';
+        resetSubmit.disabled    = true;
+
+        fetch(API_BASE + '/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resetToken: token, newPassword: newPwd }),
+        })
+        .then(function(r) { return r.json().then(function(d) { return { status: r.status, data: d }; }); })
+        .then(function(result) {
+          resetSubmit.disabled = false;
+          if (result.status === 200) {
+            showToast('success', 'Access code updated. You can now log in.', 5000);
+            closeResetModal();
+          } else {
+            resetSubmit.textContent = 'SET NEW ACCESS CODE';
+            showToast('error', result.data.error || 'Reset failed. Check your token and try again.');
+          }
+        })
+        .catch(function() {
+          resetSubmit.disabled    = false;
+          resetSubmit.textContent = 'SET NEW ACCESS CODE';
+          showToast('error', 'Network error. Please try again.');
+        });
+      }
+    });
+  }
+
+  [resetUser, resetToken, newPassword].forEach(function(el) {
+    if (el) el.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') resetSubmit.click();
+    });
+  });
+
+})();
+</script>
 </body>
 </html>

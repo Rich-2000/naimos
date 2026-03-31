@@ -17,10 +17,12 @@
 
   // ── Abort-signal helper ─────────────────────────────────────────────────
   function makeSignal(ms) {
-    var c = new AbortController();
-    setTimeout(function () { c.abort(); }, ms);
-    return c.signal;
-  }
+  var c = new AbortController();
+  var t = setTimeout(function () { c.abort(new Error('Request timed out after ' + (ms/1000) + 's')); }, ms);
+  // Store timer ref on signal so callers could clear it (not required but clean)
+  c.signal._naimos_timer = t;
+  return c.signal;
+}
 
   // ── Core fetch wrapper — returns raw Response ───────────────────────────
   // FIX 1: Returns the Response object so callers can choose .json()/.text()/.blob()
@@ -492,7 +494,7 @@
     if (lastCheck) lastCheck.textContent = 'Checking backend...';
 
     try {
-      var resp   = await apiFetch('/health', { timeoutMs: 8000 });
+      var resp   = await apiFetch('/health', { timeoutMs: 15000 });
       var health = await resp.json();
 
       var badgeMap = {
