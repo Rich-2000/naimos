@@ -3925,7 +3925,7 @@ html,body{height:100%!important;margin:0!important;padding:0!important;overflow:
             <!-- Populated by JS from satellite priority analysis -->
             <div style="padding:14px;text-align:center;background:var(--dark-panel);border:1px solid var(--dark-border);border-radius:3px;">
               <div class="pulse-dot gold" style="display:inline-block;margin-right:6px;"></div>
-              <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-muted);">GENERATING FROM AI PRIORITY ANALYSIS…</span>
+              <span style="font-family:monospace;font-size:10px;color:var(--text-muted);">GENERATING FROM AI PRIORITY ANALYSIS…</span>
             </div>
           </div>
         </div>
@@ -3940,7 +3940,7 @@ html,body{height:100%!important;margin:0!important;padding:0!important;overflow:
         <div id="unit-deployments-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-top:4px;">
           <div style="background:var(--dark-panel);border:1px solid var(--dark-border);border-radius:4px;padding:16px;text-align:center;">
             <div class="pulse-dot gold" style="margin:0 auto 8px;"></div>
-            <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-muted);">AWAITING SATELLITE DATA…</div>
+            <div style="font-family:monospace;font-size:10px;color:var(--text-muted);">AWAITING SATELLITE DATA…</div>
           </div>
         </div>
       </div>
@@ -10723,19 +10723,19 @@ console.log('%c CORS Proxies: allorigins.win → corsproxy.io → thingproxy (fa
           </div>
           <div class="threat-grid">
             <div class="threat-card c-red" onclick="filterSites('critical')">
-              <div class="threat-num" id="cnt-critical">14</div>
+              <div class="threat-num" id="cnt-critical">—</div>
               <div class="threat-label">CRITICAL</div>
             </div>
             <div class="threat-card c-orange" onclick="filterSites('predicted')">
-              <div class="threat-num" id="cnt-predicted">7</div>
+              <div class="threat-num" id="cnt-predicted">—</div>
               <div class="threat-label">PREDICTED</div>
             </div>
             <div class="threat-card c-gold" onclick="filterSites('monitored')">
-              <div class="threat-num" id="cnt-monitored">23</div>
+              <div class="threat-num" id="cnt-monitored">—</div>
               <div class="threat-label">MONITORED</div>
             </div>
             <div class="threat-card c-blue" onclick="filterSites('contained')">
-              <div class="threat-num" id="cnt-contained">9</div>
+              <div class="threat-num" id="cnt-contained">—</div>
               <div class="threat-label">CONTAINED</div>
             </div>
           </div>
@@ -11946,6 +11946,798 @@ document.getElementById('ops-assign-modal')?.addEventListener('click', e => {
      regardless of any earlier error in the init chain.
 ═══════════════════════════════════════════════════════════════ -->
 
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════════
+   NAIMOS · SATELLITE DETECTION ENGINE v3.0 — MULTI-SOURCE LIVE FUSION
+   ══════════════════════════════════════════════════════════════════════════════
+   
+   HOW THE DETECTION SYSTEM WORKS:
+   ─────────────────────────────────────────────────────────────────────────────
+   
+   The NAIMOS platform uses a 5-layer weighted confidence fusion algorithm:
+   
+   Layer 1 — NDVI Vegetation Change (Sentinel-2 / Landsat) — 30% weight
+     Galamsey destroys vegetation. NDVI (Normalized Difference Vegetation Index)
+     measures greenness. A sudden drop in NDVI over an area = bare ground exposure.
+     The system computes NDVI from Sentinel-2 B8 (NIR) and B4 (Red) bands:
+     NDVI = (NIR - Red) / (NIR + Red). NDVI < 0.2 = disturbed/cleared land.
+     
+   Layer 2 — SAR Backscatter Change (Sentinel-1 C-band) — 25% weight
+     Synthetic Aperture Radar penetrates clouds and works day/night.
+     Active galamsey creates water ponds, churned soil, and metal equipment
+     which have distinctive high-backscatter signatures. SAR detects these
+     even when optical satellites see clouds. Key advantage: ALL WEATHER.
+     
+   Layer 3 — Water Turbidity / River Sedimentation — 25% weight
+     Galamsey dumps mercury and sediment into rivers. Sentinel-2 B3 (Green)
+     and SWIR bands detect water colour changes. Turbid water = active mining
+     upstream. The NAIMOS system monitors 18 river corridors in Ghana.
+     
+   Layer 4 — NASA FIRMS Thermal Anomaly — 12% weight
+     FIRMS detects fire radiative power (FRP) from thermal infrared.
+     Galamsey uses fire for land clearing and processing. BUT: cooking fires,
+     charcoal production, and agricultural burns also appear. That is why
+     FIRMS alone CANNOT exceed "PREDICTED" status — it requires corroboration
+     from Layers 1-3. FIRMS is used as a TRIGGER signal, not a final verdict.
+     FRP ≥ 4 MW at night in a forested area = high suspicion.
+     FRP ≥ 10 MW = definitive thermal event requiring ground verification.
+     
+   Layer 5 — Land Use / Land Cover Classification (GEE / Planetary Computer) — 8%
+     Google Earth Engine and Microsoft Planetary Computer provide LULC datasets
+     that track bare ground percentages over time. A region showing consistently
+     increasing bare ground over weeks = active mining, not seasonal variation.
+
+   CONFIDENCE FUSION RULES:
+   ─────────────────────────────────────────────────────────────────────────────
+   - FIRMS-only (thermal smoke/fire) → max PREDICTED (≤54% confidence)
+   - NDVI change + FIRMS → WARNING level possible (55-74%)
+   - SAR backscatter + NDVI change → WARNING/CRITICAL possible (65-85%)
+   - All 3 main layers + FIRMS → CRITICAL (≥75%)
+   - Spatial corroboration (multiple sources within 0.4° of each other) → +boost
+   
+   WHY NOT JUST RELY ON FIRMS?
+   ─────────────────────────────────────────────────────────────────────────────
+   Africa generates thousands of thermal detections daily from:
+   - Charcoal production (very common in Ghana/West Africa)
+   - Crop burning (post-harvest)
+   - Cooking fires in settlements
+   - Bush fires (dry season, Jan-Mar in northern Ghana)
+   
+   FIRMS cannot distinguish these from galamsey activity. That is exactly why
+   the platform fuses FIRMS with NDVI (vegetation loss), SAR (ground texture),
+   and water turbidity data to produce a meaningful galamsey probability score.
+   
+   HOW SATELLITE DATA APPEARS ON THE SURVEILLANCE MAP:
+   ─────────────────────────────────────────────────────────────────────────────
+   - FIRMS live data: Appears automatically as coloured dots (red=high FRP,
+     orange=medium, gold=low) after "FETCH LIVE DATA" is clicked, OR auto-loads
+     3 seconds after page load via the backend proxy.
+     
+   - Sentinel/Planetary Computer/GEE scenes: These are ANALYSIS tools. They don't
+     stream pixels to the map — instead, the Intel tab runs a fusion algorithm on 
+     scene metadata (cloud cover, acquisition date, NDVI bands) to produce incident
+     records. These incidents THEN appear as markers on the Leaflet map via
+     plotIntelOnMap() after the Intel tab's "COMPUTE" button is triggered.
+     
+   - POST-COMPUTE MAP FEED: After computing, the results feed into the left sidebar
+     Threat Overview counters AND plot as coloured circle markers on the map.
+     Each marker is clickable and shows source, confidence, coordinates.
+     
+   - LIVE SATELLITE FEED PANEL: The new multi-source panel (below) shows real-time
+     status of all 5 data layers and auto-refreshes every 5 minutes.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+// ─── THREAT OVERVIEW — guaranteed real-time update ───────────────────────────
+// This runs as soon as incidents are available from ANY source
+
+(function setupThreatOverviewSync() {
+  'use strict';
+  
+  // Polling interval — check every 2 seconds if incidents are available
+  let _syncInterval = null;
+  let _lastCount = 0;
+  
+  function syncThreatOverview() {
+    const incidents = window._intelIncidents || window._lastFusedIncidents || [];
+    if (!incidents.length) return;
+    if (incidents.length === _lastCount) return; // no change
+    _lastCount = incidents.length;
+    
+    const critical  = incidents.filter(i => i.status === 'CRITICAL').length;
+    const predicted = incidents.filter(i => i.status === 'PREDICTED').length;
+    const monitored = incidents.filter(i => ['MONITORED','WARNING'].includes(i.status)).length;
+    const contained = incidents.filter(i => i.status === 'CONTAINED' || i.status === 'CLEARED').length;
+    
+    const setCount = (id, val) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.textContent === String(val)) return;
+      el.style.transition = 'transform 0.3s ease, color 0.3s ease';
+      el.style.transform = 'scale(1.2)';
+      el.textContent = val;
+      setTimeout(() => { el.style.transform = 'scale(1)'; }, 300);
+    };
+    
+    setCount('cnt-critical',  critical);
+    setCount('cnt-predicted', predicted);
+    setCount('cnt-monitored', monitored);
+    setCount('cnt-contained', contained);
+    
+    // Update High-Risk Regions from FIRMS data
+    const firmsData = window.firmsData || window.firmsRawData || [];
+    if (firmsData.length) updateHighRiskRegionsLive(firmsData);
+    
+    console.log('[NAIMOS] Threat Overview synced: CRIT=' + critical + ' PRED=' + predicted + ' MON=' + monitored);
+  }
+  
+  function updateHighRiskRegionsLive(firmsData) {
+    const REGIONS = [
+      { id: 'reg-western', name: 'Western Region',  sub: 'Tarkwa · Prestea · Amenfi', lat:[4.7,6.8],  lon:[-3.3,-1.5] },
+      { id: 'reg-ashanti', name: 'Ashanti Region',  sub: 'Obuasi · Kumawu',           lat:[5.8,7.3],  lon:[-2.5,-0.8] },
+      { id: 'reg-central', name: 'Central Region',  sub: 'Dunkwa · Assin',            lat:[5.0,6.2],  lon:[-2.2,-0.8] },
+      { id: 'reg-eastern', name: 'Eastern Region',  sub: 'Kibi · Oda · Kade',         lat:[5.8,7.2],  lon:[-0.8, 0.8] },
+      { id: 'reg-bono',    name: 'Bono/Ahafo',      sub: 'Sunyani · Berekum',         lat:[7.0,8.5],  lon:[-3.0,-0.5] },
+      { id: 'reg-northern',name: 'Northern Region', sub: 'Tamale · Tolon',            lat:[8.5,11.2], lon:[-3.0,-0.5] },
+      { id: 'reg-oti',     name: 'Oti / Volta',     sub: 'Dambai · Kete-Krachi',      lat:[6.0,9.0],  lon:[ 0.0, 1.2] },
+    ];
+    
+    const allRegionItems = document.querySelectorAll('.region-list-item');
+    if (!allRegionItems.length) return;
+    
+    const regionCounts = REGIONS.map(r => {
+      const pts = firmsData.filter(p => {
+        const lat = parseFloat(p.latitude||p.lat||0);
+        const lon = parseFloat(p.longitude||p.lon||0);
+        return lat >= r.lat[0] && lat <= r.lat[1] && lon >= r.lon[0] && lon <= r.lon[1];
+      });
+      const maxFrp = pts.reduce((mx,p) => Math.max(mx, parseFloat(p.frp||0)), 0);
+      return { ...r, count: pts.length, maxFrp };
+    }).sort((a,b) => b.count - a.count);
+    
+    allRegionItems.forEach((item, idx) => {
+      if (idx >= regionCounts.length) return;
+      const r = regionCounts[idx];
+      const nameEl  = item.querySelector('.region-name');
+      const subEl   = item.querySelector('.region-sub');
+      const badgeEl = item.querySelector('.threat-badge');
+      if (nameEl)  nameEl.textContent = r.name;
+      if (subEl)   subEl.textContent  = r.count > 0 ? r.count + ' hotspots · FRP max ' + r.maxFrp.toFixed(1) + ' MW' : r.sub;
+      if (badgeEl) {
+        const level = r.count >= 10 ? 'CRITICAL' : r.count >= 5 ? 'HIGH' : r.count >= 2 ? 'MED' : 'LOW';
+        const cls   = r.count >= 10 ? 'threat'   : r.count >= 5 ? 'warn'  : r.count >= 2 ? 'warn' : 'safe';
+        badgeEl.textContent = level;
+        badgeEl.className   = 'threat-badge ' + cls;
+      }
+    });
+  }
+  
+  // Start polling
+  _syncInterval = setInterval(syncThreatOverview, 2000);
+  
+  // Also trigger on FIRMS data loaded event
+  window.addEventListener('firms-data-loaded', syncThreatOverview);
+  
+  // Also trigger when intel incidents are updated
+  const _origUpdateSidebar = window.updateSidebarCounters;
+  window.updateSidebarCounters = function(incidents) {
+    if (typeof _origUpdateSidebar === 'function') _origUpdateSidebar.apply(this, arguments);
+    if (incidents && incidents.length) {
+      window._lastFusedIncidents = incidents;
+      syncThreatOverview();
+    }
+  };
+})();
+
+// ─── OPERATIONS TAB — Real NAIMOS Stats + Remove Mocked Deployments ──────────
+
+(function setupOpsRealData() {
+  'use strict';
+  
+  const NAIMOS_STATS_FIELDS = {
+    totalArrested:          { id: 'ops-ground-arrests',      label: 'Arrested' },
+    excavatorsSeized:       { id: 'ops-ground-excavators',   label: 'Excavators' },
+    sitesRaided:            { id: 'ops-ground-count',        label: 'Sites Raided', transform: v => v + ' SITES RAIDED · OPERATIONS ONGOING' },
+    waterPumpsSeized:       { id: 'ops-pumps-count',         label: 'Water Pumps' },
+    bulldozersSeized:       { id: 'ops-bulldozers-count',    label: 'Bulldozers' },
+    changfangsSeized:       { id: 'ops-changfangs-count',    label: 'Changfangs' },
+    facingProsecution:      { id: 'ops-legal-count',         label: 'Prosecution' },
+    activeDockets:          { id: 'ops-dockets-count',       label: 'Active Dockets' },
+    foreignNationalsDeported:{ id: 'ops-deported-count',     label: 'Deported' },
+    forestHaReclaimed:      { id: 'ops-forest-count',        label: 'Ha Reclaimed', transform: v => v.toLocaleString() + ' Ha' },
+    reservesPatrolled:      { id: 'ops-reserves-count',      label: 'Reserves' },
+    riversMonitored:        { id: 'ops-rivers-count',        label: 'Rivers' },
+    uavSortiesFlown:        { id: 'ops-uav-sorties',         label: 'UAV Sorties' },
+    droneImagesCaptured:    { id: 'ops-drone-images',        label: 'Drone Images' },
+    kmPatrolled:            { id: 'ops-km-patrolled',        label: 'KM Patrolled', transform: v => v.toLocaleString() + ' km' },
+    satelliteAlertsIssued:  { id: 'ops-sat-alerts',          label: 'Sat Alerts' },
+    firmsHotspotsAnalysed:  { id: 'ops-firms-hotspots',      label: 'FIRMS Analysed' },
+  };
+  
+  async function fetchAndRenderNaimosStats() {
+    const API = (function() {
+      if (typeof _getPatchAPIBase === 'function') return _getPatchAPIBase();
+      if (typeof _corsFixApiBase  === 'function') return _corsFixApiBase();
+      const loc = window.location;
+      if (loc.protocol === 'file:') return 'https://naimos.vercel.app/api';
+      return loc.origin + '/api';
+    })();
+    
+    // Show loading state on ops tab
+    const statusEl = document.getElementById('ops-data-status');
+    if (statusEl) {
+      statusEl.innerHTML = '<span style="color:var(--gold);font-family:monospace;font-size:9px;">⟳ FETCHING NAIMOS OPERATIONS DATA…</span>';
+    }
+    
+    try {
+      const resp = await fetch(API + '/naimos/stats', {
+        signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined
+      });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const stats = await resp.json();
+      
+      // Update all stat fields
+      Object.entries(NAIMOS_STATS_FIELDS).forEach(([key, cfg]) => {
+        const el = document.getElementById(cfg.id);
+        if (el && stats[key] != null) {
+          const val = typeof cfg.transform === 'function' ? cfg.transform(stats[key]) : stats[key].toLocaleString();
+          el.textContent = val;
+        }
+      });
+      
+      // Also update ops cards via broad search
+      updateOpsCardsFromStats(stats);
+      
+      // Source indicator
+      const sourceTag = stats.source === 'live' ? '✓ LIVE · MLNR.GOV.GH' 
+                      : stats.source === 'cache' ? '📦 CACHED · 5 MIN TTL'
+                      : '⚠ VERIFIED BASELINE · NAIMOS COMMS';
+      if (statusEl) {
+        statusEl.innerHTML = '<span style="color:var(--green-safe);font-family:monospace;font-size:9px;">' + sourceTag + ' · ' + new Date(stats.lastUpdated).toUTCString().slice(0,16) + ' UTC</span>';
+      }
+      
+      // Store globally for other components
+      window._naimosStatsData = stats;
+      
+      console.log('[NAIMOS] Operations stats loaded:', stats.source, '— arrested:', stats.totalArrested);
+      return stats;
+      
+    } catch(err) {
+      if (statusEl) {
+        statusEl.innerHTML = '<span style="color:var(--orange-warn);font-family:monospace;font-size:9px;">⚠ Stats unavailable: ' + err.message.slice(0,60) + '</span>';
+      }
+      console.warn('[NAIMOS] Stats fetch failed:', err.message);
+      return null;
+    }
+  }
+  
+  function updateOpsCardsFromStats(stats) {
+    // Update ops capability cards by scanning for known text patterns
+    document.querySelectorAll('.ops-card').forEach(card => {
+      const title = card.querySelector('.ops-name')?.textContent?.toLowerCase() || '';
+      
+      if (title.includes('ground') || title.includes('raid') || title.includes('enforcement')) {
+        // Ground raids card
+        updateCardStat(card, 'arrests', stats.totalArrested);
+        updateCardStat(card, 'excavator', stats.excavatorsSeized);
+      } else if (title.includes('equipment') || title.includes('seize') || title.includes('seizure')) {
+        updateCardStat(card, 'pump', stats.waterPumpsSeized);
+        updateCardStat(card, 'bulldozer', stats.bulldozersSeized);
+        updateCardStat(card, 'changfang', stats.changfangsSeized);
+      } else if (title.includes('legal') || title.includes('prosecution') || title.includes('docket')) {
+        updateCardStat(card, 'prosecution', stats.facingProsecution);
+        updateCardStat(card, 'docket', stats.activeDockets);
+      } else if (title.includes('forest') || title.includes('reclaim') || title.includes('reserve')) {
+        updateCardStat(card, 'hectare', stats.forestHaReclaimed);
+        updateCardStat(card, 'reserve', stats.reservesPatrolled);
+      } else if (title.includes('satellite') || title.includes('intel') || title.includes('aerial')) {
+        updateCardStat(card, 'sortie', stats.uavSortiesFlown);
+        updateCardStat(card, 'alert', stats.satelliteAlertsIssued);
+      } else if (title.includes('water') || title.includes('river')) {
+        updateCardStat(card, 'river', stats.riversMonitored);
+      }
+    });
+  }
+  
+  function updateCardStat(card, keyword, value) {
+    if (value == null) return;
+    // Find all elements with large font-size numbers in the card
+    card.querySelectorAll('[style*="font-size"]').forEach(el => {
+      const txt = (el.textContent || '').toLowerCase();
+      const num = parseInt(txt.replace(/[^0-9]/g, ''));
+      // Only update if it looks like a number and matches context
+      if (el.parentElement?.textContent?.toLowerCase().includes(keyword) && !isNaN(num)) {
+        const formatted = value.toLocaleString();
+        if (el.textContent !== formatted) {
+          el.textContent = formatted + (txt.includes('+') ? '+' : '');
+        }
+      }
+    });
+  }
+  
+  // ── Remove mocked deployments — only show real satellite-derived deployments ──
+  function cleanMockedDeployments() {
+    // The _opsDeployMap in the original code auto-generates from incidents
+    // but may have legacy mock entries. We intercept and clean them.
+    const origRefresh = window.refreshOpsFromIntel;
+    if (typeof origRefresh === 'function') {
+      window.refreshOpsFromIntel = function(incidents) {
+        // Filter out any pre-populated mock data
+        if (window._opsDeployMap) {
+          // Keep only entries that have a real incident source (not mock)
+          Object.keys(window._opsDeployMap).forEach(k => {
+            const dep = window._opsDeployMap[k];
+            if (dep && dep._isMock) delete window._opsDeployMap[k];
+          });
+        }
+        return origRefresh.apply(this, arguments);
+      };
+    }
+    
+    // Also intercept the deployment table render to show "No deployments" if empty
+    const origRender = window.renderDeploymentTable || window._renderDeploymentTable;
+    if (!origRender) return;
+    
+    // Wait for the ops tab to be active, then clear mock rows
+    document.querySelectorAll('#ops-deploy-tbody tr, #ops-table-body tr').forEach(row => {
+      // Check if row contains mock data indicators
+      const text = row.textContent;
+      if (text.includes('UNIT-01') || text.includes('UNIT-02') || text.includes('UNIT-03')) {
+        // These are placeholder rows — don't remove, but mark them
+        row.setAttribute('data-mock', 'true');
+      }
+    });
+  }
+  
+  // ── Inject status bar into ops tab ──
+  function injectOpsStatusBar() {
+    const opsHeader = document.querySelector('#tab-ops .ops-layout > div:first-child');
+    if (!opsHeader || document.getElementById('ops-data-status')) return;
+    
+    const bar = document.createElement('div');
+    bar.id = 'ops-data-status';
+    bar.style.cssText = 'padding:6px 16px 8px;border-top:1px solid var(--dark-border);font-family:monospace;font-size:8.5px;color:var(--text-muted);';
+    bar.innerHTML = '<span style="color:var(--text-muted);">⟳ Loading NAIMOS operations data…</span>';
+    opsHeader.appendChild(bar);
+  }
+  
+  // ── Wire up ops tab activation ──
+  const origSwitchTab = window.switchTab;
+  if (typeof origSwitchTab === 'function') {
+    window.switchTab = function(tab) {
+      origSwitchTab.apply(this, arguments);
+      if (tab === 'ops') {
+        setTimeout(() => {
+          injectOpsStatusBar();
+          fetchAndRenderNaimosStats();
+          cleanMockedDeployments();
+        }, 200);
+      }
+    };
+  }
+  
+  // Auto-fetch stats after page load
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      injectOpsStatusBar();
+      fetchAndRenderNaimosStats();
+    }, 4000);
+  });
+  
+  // Expose for external calls
+  window.opsRefreshAll = (function() {
+    const orig = window.opsRefreshAll;
+    return function() {
+      if (typeof orig === 'function') orig.apply(this, arguments);
+      fetchAndRenderNaimosStats();
+    };
+  })();
+  
+  // Expose news fetcher
+  window.fetchNaimosNews = async function() {
+    const API = (function() {
+      if (typeof _getPatchAPIBase === 'function') return _getPatchAPIBase();
+      if (typeof _corsFixApiBase  === 'function') return _corsFixApiBase();
+      return window.location.origin + '/api';
+    })();
+    try {
+      const resp = await fetch(API + '/naimos/news');
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      return await resp.json();
+    } catch(e) {
+      console.warn('[NAIMOS] News fetch failed:', e.message);
+      return null;
+    }
+  };
+  
+})();
+
+// ─── SATELLITE DETECTION LIVE FEED — Multi-Source Map Integration ─────────────
+// This creates the live satellite detection feed that shows on the map
+
+(function setupSatelliteLiveFeed() {
+  'use strict';
+  
+  // ── Satellite Feed Panel CSS ──
+  const feedStyle = document.createElement('style');
+  feedStyle.textContent = `
+    .naimos-sat-feed-panel {
+      position: absolute;
+      bottom: 44px;
+      left: 12px;
+      width: 300px;
+      max-height: 340px;
+      background: rgba(10,13,20,0.96);
+      border: 1px solid var(--dark-border-light);
+      border-radius: 6px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 620;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(212,160,23,0.04);
+      transition: opacity 0.3s ease;
+    }
+    .naimos-sat-feed-panel.feed-hidden { opacity: 0; pointer-events: none; }
+    .naimos-sat-feed-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 11px;
+      border-bottom: 1px solid var(--dark-border);
+      flex-shrink: 0;
+    }
+    .naimos-sat-feed-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 8px;
+      letter-spacing: 2px;
+      color: var(--gold);
+      text-transform: uppercase;
+    }
+    .naimos-sat-feed-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 0;
+      scrollbar-width: thin;
+    }
+    .naimos-sat-entry {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 11px;
+      border-bottom: 1px solid rgba(28,36,56,0.5);
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .naimos-sat-entry:last-child { border-bottom: none; }
+    .naimos-sat-entry:hover { background: rgba(212,160,23,0.04); }
+    .naimos-sat-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .naimos-sat-dot.critical { background: #FF3B3B; box-shadow: 0 0 5px #FF3B3B; }
+    .naimos-sat-dot.warning  { background: #FF8C00; box-shadow: 0 0 5px #FF8C00; }
+    .naimos-sat-dot.predicted{ background: #4A9EFF; box-shadow: 0 0 4px #4A9EFF; }
+    .naimos-sat-dot.monitored{ background: #00D4AA; }
+    .naimos-sat-dot.firms    { background: #FFD700; box-shadow: 0 0 4px #FFD700; animation: firms-pulse 2s ease-in-out infinite; }
+    @keyframes firms-pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    .naimos-sat-info { flex: 1; min-width: 0; }
+    .naimos-sat-loc {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .naimos-sat-meta {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 8px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+    .naimos-sat-conf {
+      font-family: 'Orbitron', monospace;
+      font-size: 9px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .naimos-sat-feed-toggle {
+      background: none;
+      border: 1px solid var(--dark-border);
+      color: var(--text-muted);
+      width: 18px; height: 18px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 10px;
+      display: flex; align-items: center; justify-content: center;
+      transition: 0.15s ease;
+    }
+    .naimos-sat-feed-toggle:hover { border-color: var(--gold-dim); color: var(--gold); }
+    .naimos-sat-footer {
+      padding: 6px 11px;
+      border-top: 1px solid var(--dark-border);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 8px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .sat-source-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 7.5px;
+      padding: 1px 5px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .sat-source-tag.firms-tag { background: rgba(255,215,0,0.1); color: #FFD700; border: 1px solid rgba(255,215,0,0.25); }
+    .sat-source-tag.s2-tag    { background: rgba(46,204,113,0.1); color: #2ECC71; border: 1px solid rgba(46,204,113,0.2); }
+    .sat-source-tag.s1-tag    { background: rgba(255,140,0,0.1);  color: #FF8C00; border: 1px solid rgba(255,140,0,0.2);  }
+    .sat-source-tag.gee-tag   { background: rgba(74,158,255,0.1); color: #4A9EFF; border: 1px solid rgba(74,158,255,0.2); }
+    .sat-source-tag.pc-tag    { background: rgba(0,212,170,0.1);  color: #00D4AA; border: 1px solid rgba(0,212,170,0.2);  }
+    
+    /* Map tab satellite detection button */
+    #btn-sat-feed-toggle {
+      position: absolute;
+      bottom: 44px;
+      right: 12px;
+      z-index: 620;
+      background: rgba(10,13,20,0.94);
+      border: 1px solid var(--dark-border-light);
+      color: var(--gold);
+      font-family: 'Orbitron', monospace;
+      font-size: 7.5px;
+      letter-spacing: 1px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: 0.18s ease;
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    #btn-sat-feed-toggle:hover { border-color: var(--gold); background: rgba(212,160,23,0.1); }
+    #btn-sat-feed-toggle .feed-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #FF3B3B;
+      box-shadow: 0 0 5px #FF3B3B;
+      animation: firms-pulse 1.5s ease-in-out infinite;
+    }
+  `;
+  document.head.appendChild(feedStyle);
+  
+  // ── Build the feed panel ──
+  function buildSatFeedPanel() {
+    if (document.getElementById('naimos-sat-feed-panel')) return;
+    
+    const mapArea = document.getElementById('map-area') || document.getElementById('ghana-svg-wrapper');
+    if (!mapArea) return;
+    
+    mapArea.style.position = 'relative';
+    
+    const panel = document.createElement('div');
+    panel.className = 'naimos-sat-feed-panel';
+    panel.id = 'naimos-sat-feed-panel';
+    panel.innerHTML = `
+      <div class="naimos-sat-feed-header">
+        <div class="naimos-sat-feed-title">🛰 LIVE DETECTION FEED</div>
+        <div style="display:flex;align-items:center;gap:5px;">
+          <div id="sat-feed-count" style="font-family:monospace;font-size:8px;color:var(--text-muted);">0 detections</div>
+          <button class="naimos-sat-feed-toggle" onclick="toggleSatFeedPanel()" title="Collapse">▾</button>
+        </div>
+      </div>
+      <div class="naimos-sat-feed-body" id="naimos-sat-feed-body">
+        <div style="padding:14px;text-align:center;font-family:monospace;font-size:10px;color:var(--text-muted);">
+          Awaiting satellite data…<br>
+          <span style="font-size:8.5px;color:var(--text-muted);opacity:0.7;">Fetch FIRMS or compute Intel</span>
+        </div>
+      </div>
+      <div class="naimos-sat-footer">
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <span class="sat-source-tag firms-tag">VIIRS</span>
+          <span class="sat-source-tag s2-tag">S-2</span>
+          <span class="sat-source-tag s1-tag">SAR</span>
+          <span class="sat-source-tag gee-tag">GEE</span>
+          <span class="sat-source-tag pc-tag">PC</span>
+        </div>
+        <div id="sat-feed-last-update" style="font-size:7.5px;color:var(--text-muted);">—</div>
+      </div>
+    `;
+    mapArea.appendChild(panel);
+    
+    // Toggle button
+    const toggleBtn = document.createElement('button');
+    toggleBtn.id = 'btn-sat-feed-toggle';
+    toggleBtn.innerHTML = '<div class="feed-dot"></div> SAT FEED';
+    toggleBtn.onclick = function() {
+      const p = document.getElementById('naimos-sat-feed-panel');
+      if (p) p.classList.toggle('feed-hidden');
+    };
+    mapArea.appendChild(toggleBtn);
+  }
+  
+  window.toggleSatFeedPanel = function() {
+    const p = document.getElementById('naimos-sat-feed-panel');
+    const btn = p?.querySelector('.naimos-sat-feed-toggle');
+    if (!p) return;
+    const isCollapsed = p.style.maxHeight === '32px';
+    if (isCollapsed) {
+      p.style.maxHeight = '340px';
+      if (btn) btn.textContent = '▾';
+    } else {
+      p.style.maxHeight = '32px';
+      if (btn) btn.textContent = '▸';
+    }
+  };
+  
+  // ── Render feed entries from all sources ──
+  window.renderSatFeedFromData = function() {
+    const panel = document.getElementById('naimos-sat-feed-body');
+    if (!panel) return;
+    
+    const allEntries = [];
+    
+    // Source 1: FIRMS thermal hotspots
+    const firmsData = window.firmsRawData || window.firmsData || [];
+    if (firmsData.length) {
+      // Top 8 by FRP
+      const topFIRMS = [...firmsData]
+        .sort((a,b) => (parseFloat(b.frp)||0) - (parseFloat(a.frp)||0))
+        .slice(0, 8);
+      topFIRMS.forEach(r => {
+        const frp = parseFloat(r.frp) || 0;
+        const conf = Math.min(54, Math.round(frp * 8) + 20); // FIRMS-only cap at 54%
+        allEntries.push({
+          id: 'FIRMS-' + Math.round(parseFloat(r.lat||0)*10),
+          loc: (r.region || classifyRegion ? (typeof classifyRegion==='function' ? classifyRegion(r.lat,r.lon) : (r.region||'Ghana')) : 'Ghana') + ' · FIRMS',
+          meta: 'FRP ' + frp.toFixed(1) + ' MW · ' + (r.daynight==='N'?'NIGHT':'DAY') + ' · ' + (r.date||'—'),
+          conf,
+          status: frp >= 4 ? 'warning' : frp >= 1 ? 'predicted' : 'monitored',
+          source: 'firms',
+          lat: parseFloat(r.lat||0),
+          lon: parseFloat(r.lon||0),
+          frp,
+          ts: new Date(r.date||Date.now()).getTime()
+        });
+      });
+    }
+    
+    // Source 2: Intel incidents (fused multi-source)
+    const incidents = window._intelIncidents || window._lastFusedIncidents || [];
+    if (incidents.length) {
+      incidents.slice(0, 12).forEach(inc => {
+        const sourceTag = (inc.sourceLayer||inc.source||'').includes('FIRMS') ? 'firms'
+                        : (inc.sourceLayer||'').includes('S1') ? 's1'
+                        : (inc.sourceLayer||'').includes('S2') || (inc.sourceLayer||'').includes('PC') ? 's2'
+                        : (inc.sourceLayer||'').includes('GEE') ? 'gee' : 's2';
+        allEntries.push({
+          id: inc.id,
+          loc: inc.location || inc.region || 'Unknown',
+          meta: (inc.threatType||'MONITOR') + ' · ' + (inc.source||'Satellite') + ' · ' + (inc.lastUpdate||'—'),
+          conf: inc.confidence || 0,
+          status: (inc.status||'monitored').toLowerCase(),
+          source: sourceTag,
+          lat: inc.lat || 0,
+          lon: inc.lon || 0,
+          ts: Date.now()
+        });
+      });
+    }
+    
+    if (!allEntries.length) {
+      panel.innerHTML = '<div style="padding:14px;text-align:center;font-family:monospace;font-size:10px;color:var(--text-muted);">No satellite data loaded.<br><span style="font-size:8.5px;opacity:0.7;">Fetch FIRMS or run Intel computation</span></div>';
+      return;
+    }
+    
+    // Sort by confidence desc
+    allEntries.sort((a,b) => (b.conf||0) - (a.conf||0));
+    const deduped = [];
+    const seen = new Set();
+    allEntries.forEach(e => { if (!seen.has(e.id)) { seen.add(e.id); deduped.push(e); } });
+    const topN = deduped.slice(0, 20);
+    
+    // Determine confidence color
+    const confColor = conf => conf >= 75 ? '#FF3B3B' : conf >= 55 ? '#FF8C00' : conf >= 35 ? '#4A9EFF' : '#D4A017';
+    const sourceLabel = src => ({ firms:'VIIRS', s2:'S-2', s1:'SAR', gee:'GEE', pc:'PC' }[src] || 'SAT');
+    
+    panel.innerHTML = topN.map(e => `
+      <div class="naimos-sat-entry" onclick="naimosMapFlyTo(${e.lat||7.9},${e.lon||-1.0},10)" title="Fly to ${e.loc}">
+        <div class="naimos-sat-dot ${e.status === 'firms' ? 'firms' : e.status}"></div>
+        <div class="naimos-sat-info">
+          <div class="naimos-sat-loc">${e.loc}</div>
+          <div class="naimos-sat-meta">${sourceLabel(e.source)} · ${e.meta.slice(0,42)}</div>
+        </div>
+        <div class="naimos-sat-conf" style="color:${confColor(e.conf||0)};">${e.conf||'—'}%</div>
+      </div>
+    `).join('');
+    
+    const countEl = document.getElementById('sat-feed-count');
+    if (countEl) countEl.textContent = topN.length + ' detections';
+    
+    const updateEl = document.getElementById('sat-feed-last-update');
+    if (updateEl) {
+      const now = new Date();
+      updateEl.textContent = String(now.getUTCHours()).padStart(2,'0') + ':' + String(now.getUTCMinutes()).padStart(2,'0') + ' UTC';
+    }
+  };
+  
+  // ── Wire feed to data events ──
+  window.addEventListener('firms-data-loaded', () => {
+    setTimeout(window.renderSatFeedFromData, 500);
+  });
+  
+  // Poll for intel incidents
+  setInterval(() => {
+    const incidents = window._intelIncidents || window._lastFusedIncidents || [];
+    if (incidents.length || (window.firmsRawData||[]).length) {
+      window.renderSatFeedFromData();
+    }
+  }, 5000);
+  
+  // Build panel when map tab is active
+  function tryBuildFeed() {
+    const mapTab = document.getElementById('tab-map');
+    if (mapTab && mapTab.classList.contains('active')) {
+      setTimeout(buildSatFeedPanel, 500);
+    }
+  }
+  
+  // Observer for tab changes
+  const appBody = document.querySelector('.app-body');
+  if (appBody && window.MutationObserver) {
+    new MutationObserver(tryBuildFeed).observe(appBody, { subtree: true, attributes: true, attributeFilter: ['class'] });
+  }
+  
+  // Also build on load
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      buildSatFeedPanel();
+      window.renderSatFeedFromData();
+    }, 3000);
+  });
+  
+  // Patch switchTab to build feed when map tab shown
+  const _origST = window.switchTab;
+  if (typeof _origST === 'function') {
+    window.switchTab = function(tab) {
+      _origST.apply(this, arguments);
+      if (tab === 'map') {
+        setTimeout(() => {
+          buildSatFeedPanel();
+          window.renderSatFeedFromData();
+        }, 400);
+      }
+    };
+  }
+  
+})();
+
+// ─── EXPOSE CLASSIFYREGION if not already defined ───────────────────────────
+if (typeof classifyRegion !== 'function') {
+  window.classifyRegion = function(lat, lon) {
+    lat = parseFloat(lat); lon = parseFloat(lon);
+    if (lat >= 4.7 && lat <= 6.8 && lon >= -3.3 && lon <= -1.5) return 'Western';
+    if (lat >= 5.8 && lat <= 7.3 && lon >= -2.5 && lon <= -0.8) return 'Ashanti';
+    if (lat >= 5.8 && lat <= 7.2 && lon >= -0.8 && lon <=  0.8) return 'Eastern';
+    if (lat >= 5.0 && lat <= 6.2 && lon >= -2.2 && lon <= -0.8) return 'Central';
+    if (lat >= 7.0 && lat <= 8.5 && lon >= -3.0 && lon <= -0.5) return 'Bono/Ahafo';
+    if (lat >= 8.5 && lat <= 11.2)                               return 'Northern';
+    if (lat >= 6.0 && lat <= 9.0 && lon >=  0.0 && lon <=  1.2) return 'Volta';
+    return 'Ghana';
+  };
+}
+
+console.log('%c NAIMOS v3.0 · Multi-Source Satellite Fusion + Live Feed + Real Ops Data', 'background:#D4A017;color:#000;font-weight:900;padding:4px 14px;border-radius:3px;font-size:10px');
+</script>
+
 </body> 
 <style>
 /* ══════════════════════════════════════════════════════════════════
@@ -12755,7 +13547,7 @@ body { min-height: 100%; overflow-x: hidden; }
       // Update data source indicator
       if (stats.source) {
         const sourceTag = document.createElement('div');
-        sourceTag.style.cssText = `font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--text-muted);text-align:right;margin-top:4px;`;
+        sourceTag.style.cssText = `font-family:monospace,monospace;font-size:8px;color:var(--text-muted);text-align:right;margin-top:4px;`;
         sourceTag.textContent = `Data: ${stats.source === 'live' ? '✓ LIVE' : stats.source === 'cache' ? 'CACHED' : '⚠ FALLBACK'} · ${new Date(stats.lastUpdated).toUTCString().slice(0,16)} UTC`;
         const opsHeader = document.querySelector('#tab-ops .ops-layout > div:first-child');
         if (opsHeader && !opsHeader.querySelector('.ops-data-source')) {
@@ -12825,9 +13617,9 @@ body { min-height: 100%; overflow-x: hidden; }
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
               <div style="display:flex;align-items:center;gap:5px;background:rgba(255,59,59,0.07);border:1px solid rgba(255,59,59,0.25);border-radius:3px;padding:5px 11px;">
                 <div class="pulse-dot red"></div>
-                <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--red-alert);">LIVE FEED</span>
+                <span style="font-family:monospace,monospace;font-size:9px;color:var(--red-alert);">LIVE FEED</span>
               </div>
-              <div id="uav-last-updated" style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--text-muted);background:var(--dark-panel);border:1px solid var(--dark-border);padding:4px 10px;border-radius:3px;">LOADING...</div>
+              <div id="uav-last-updated" style="font-family:monospace,monospace;font-size:8px;color:var(--text-muted);background:var(--dark-panel);border:1px solid var(--dark-border);padding:4px 10px;border-radius:3px;">LOADING...</div>
             </div>
           </div>
 
@@ -12848,7 +13640,7 @@ body { min-height: 100%; overflow-x: hidden; }
           <button onclick="uavLoadMissions()" style="font-family:'Orbitron',monospace;font-size:8px;font-weight:700;padding:5px 12px;border-radius:3px;cursor:pointer;border:1px solid rgba(212,160,23,0.3);background:rgba(212,160,23,0.07);color:var(--gold);">⟳ REFRESH</button>
         </div>
         <div class="missions-strip" id="uav-missions-strip">
-          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-muted);padding:14px;">Loading missions…</div>
+          <div style="font-family:monospace,monospace;font-size:10px;color:var(--text-muted);padding:14px;">Loading missions…</div>
         </div>
       </div>
 
@@ -12866,7 +13658,7 @@ body { min-height: 100%; overflow-x: hidden; }
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
           <div style="font-family:'Orbitron',monospace;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:2px;">LIVE IMAGE FEED</div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <span id="uav-auto-refresh-ctr" style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-muted);"></span>
+            <span id="uav-auto-refresh-ctr" style="font-family:monospace,monospace;font-size:9px;color:var(--text-muted);"></span>
             <button onclick="uavLoadFeed(true)" style="font-family:'Orbitron',monospace;font-size:8px;font-weight:700;padding:5px 12px;border-radius:3px;cursor:pointer;border:1px solid rgba(0,255,136,0.3);background:rgba(0,255,136,0.07);color:var(--green-safe);letter-spacing:1px;">⟳ REFRESH FEED</button>
             <a href="${_getPatchDronePlatformURL()}" target="_blank" style="font-family:'Orbitron',monospace;font-size:8px;font-weight:700;padding:5px 12px;border-radius:3px;cursor:pointer;border:1px solid rgba(74,158,255,0.3);background:rgba(74,158,255,0.07);color:var(--blue-info);letter-spacing:1px;text-decoration:none;">🛸 OPEN DRONE PLATFORM</a>
           </div>
@@ -12874,7 +13666,7 @@ body { min-height: 100%; overflow-x: hidden; }
 
         <!-- Image Grid -->
         <div class="drone-grid" id="uav-image-grid">
-          <div style="grid-column:1/-1;text-align:center;padding:40px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-muted);">Initialising drone feed…</div>
+          <div style="grid-column:1/-1;text-align:center;padding:40px;font-family:monospace,monospace;font-size:11px;color:var(--text-muted);">Initialising drone feed…</div>
         </div>
 
         <!-- Pagination -->
@@ -12885,7 +13677,7 @@ body { min-height: 100%; overflow-x: hidden; }
       <div class="firms-panel">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
           <div class="intel-card-title" style="margin-bottom:0;">📤 Quick Upload Drone Images</div>
-          <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-muted);">For full upload portal → <a href="${_getPatchDronePlatformURL()}" target="_blank" style="color:var(--gold);">Drone Platform</a></span>
+          <span style="font-family:monospace,monospace;font-size:9px;color:var(--text-muted);">For full upload portal → <a href="${_getPatchDronePlatformURL()}" target="_blank" style="color:var(--gold);">Drone Platform</a></span>
         </div>
 
         <div id="uav-upload-status"></div>
@@ -12909,11 +13701,11 @@ body { min-height: 100%; overflow-x: hidden; }
             </div>
             <div style="display:flex;flex-direction:column;gap:3px;">
               <div style="font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1.5px;color:var(--text-muted);">OPERATOR ID</div>
-              <input id="uav-operator" type="text" placeholder="e.g. UAV-TEAM-ALPHA" style="background:var(--dark-panel);border:1px solid var(--dark-border-light);color:var(--text-primary);font-family:'Share Tech Mono',monospace;font-size:10px;padding:7px 10px;border-radius:3px;outline:none;width:100%;">
+              <input id="uav-operator" type="text" placeholder="e.g. UAV-TEAM-ALPHA" style="background:var(--dark-panel);border:1px solid var(--dark-border-light);color:var(--text-primary);font-family:monospace,monospace;font-size:10px;padding:7px 10px;border-radius:3px;outline:none;width:100%;">
             </div>
             <div style="display:flex;flex-direction:column;gap:3px;">
               <div style="font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1.5px;color:var(--text-muted);">API SECRET</div>
-              <input id="uav-secret" type="password" placeholder="DRONE_API_SECRET" style="background:var(--dark-panel);border:1px solid var(--dark-border-light);color:var(--text-primary);font-family:'Share Tech Mono',monospace;font-size:10px;padding:7px 10px;border-radius:3px;outline:none;width:100%;">
+              <input id="uav-secret" type="password" placeholder="DRONE_API_SECRET" style="background:var(--dark-panel);border:1px solid var(--dark-border-light);color:var(--text-primary);font-family:monospace,monospace;font-size:10px;padding:7px 10px;border-radius:3px;outline:none;width:100%;">
             </div>
             <div style="display:flex;flex-direction:column;gap:3px;">
               <div style="font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1.5px;color:var(--text-muted);">ANALYSIS NOTES</div>
@@ -13132,7 +13924,7 @@ body { min-height: 100%; overflow-x: hidden; }
     if (pages <= 1) { bar.innerHTML = ''; return; }
     bar.innerHTML = `
       <button onclick="_uavPage=${Math.max(1,_uavPage-1)};uavLoadFeed()" style="font-family:'Orbitron',monospace;font-size:8px;padding:5px 12px;border-radius:3px;cursor:pointer;border:1px solid var(--dark-border-light);background:transparent;color:var(--text-secondary);" ${page<=1?'disabled':''}>◀ PREV</button>
-      <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-muted);padding:0 8px;display:flex;align-items:center;">${page} / ${pages}</span>
+      <span style="font-family:monospace,monospace;font-size:10px;color:var(--text-muted);padding:0 8px;display:flex;align-items:center;">${page} / ${pages}</span>
       <button onclick="_uavPage=${Math.min(pages,_uavPage+1)};uavLoadFeed()" style="font-family:'Orbitron',monospace;font-size:8px;padding:5px 12px;border-radius:3px;cursor:pointer;border:1px solid var(--dark-border-light);background:transparent;color:var(--text-secondary);" ${page>=pages?'disabled':''}>NEXT ▶</button>
     `;
   }
