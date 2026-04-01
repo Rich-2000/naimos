@@ -81,6 +81,9 @@ app.use(
           // OpenStreetMap tile servers
           'https://*.tile.openstreetmap.org',
           'https://*.openstreetmap.org',
+          'https://server.arcgisonline.com',
+  'https://*.arcgisonline.com',
+  'https://*.opentopomap.org',
         ],
         connectSrc: [
           "'self'",
@@ -96,6 +99,13 @@ app.use(
           'https://unpkg.com',   
           'https://*.tile.openstreetmap.org',
           'https://nominatim.openstreetmap.org',
+          'https://server.arcgisonline.com',
+  'https://*.arcgisonline.com',
+  'https://a.tile.opentopomap.org',
+  'https://b.tile.opentopomap.org',
+  'https://c.tile.opentopomap.org',
+  'https://*.basemaps.cartocdn.com',
+  'basemaps.cartocdn.com',  
           'http://localhost:3001',
           'ws://localhost:3001',
         ],
