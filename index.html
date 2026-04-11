@@ -2457,6 +2457,12 @@ html, body {
   border-color: rgba(255,59,59,0.22);
 }
 .ops-row-btn.recall:hover { background: rgba(255,59,59,0.15); border-color: var(--red-alert); }
+.ops-row-btn.delete {
+  color: var(--red-alert);
+  background: rgba(255,59,59,0.06);
+  border-color: rgba(255,59,59,0.22);
+}
+.ops-row-btn.delete:hover { background: rgba(255,59,59,0.2); border-color: var(--red-alert); }
 
 /* ── Planned ops list item ── */
 .ops-planned-item {
@@ -2491,6 +2497,43 @@ html, body {
   #ops-deploy-table tbody td:nth-child(5),
   #ops-deploy-table thead th:nth-child(8),
   #ops-deploy-table tbody td:nth-child(8) { display: none; }
+}
+
+/* ===== OPS DEPLOYMENT TABLE VIEWER — MOBILE-SAFE =====
+   Mirrors the sentinel-viewer / gee-viewer sizing strategy so the
+   table section is always visible regardless of browser zoom level
+   (works from 30% all the way to full desktop zoom).
+*/
+.ops-deploy-table-wrap {
+  position: relative;
+  width: 100%;
+  min-height: 220px;                       /* absolute floor — never collapses */
+  height: auto;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  flex-shrink: 0;                          /* prevent flex container from squishing */
+  border-radius: 0;
+  /* Subtle horizontal-scroll indicator matching data-tbl-scroll-wrapper */
+  background:
+    linear-gradient(to right, var(--dark-card) 20px, transparent 20px),
+    linear-gradient(to left,  var(--dark-card) 20px, transparent 20px) 100% 0,
+    radial-gradient(farthest-side at 0%   50%, rgba(74,158,255,0.12), transparent),
+    radial-gradient(farthest-side at 100% 50%, rgba(74,158,255,0.12), transparent) 100% 0;
+  background-repeat: no-repeat;
+  background-color: var(--dark-card);
+  background-size: 20px 100%, 20px 100%, 10px 100%, 10px 100%;
+  background-attachment: local, local, scroll, scroll;
+}
+@media (max-width: 960px) {
+  .ops-deploy-table-wrap {
+    min-height: 180px;
+  }
+}
+@media (max-width: 640px) {
+  .ops-deploy-table-wrap {
+    min-height: 160px;
+  }
 }
 
 /* ============ MOBILE SIDEBAR OVERLAY ============ */
@@ -3768,7 +3811,7 @@ html,body{height:100%!important;margin:0!important;padding:0!important;overflow:
       </div>
 
       <!-- ── DEPLOYMENT TRACKER — USER-ENTERED ONLY ── -->
-      <div style="background:var(--dark-card);border:1px solid var(--dark-border);border-radius:var(--radius-md);padding:0;overflow:hidden;">
+      <div style="background:var(--dark-card);border:1px solid var(--dark-border);border-radius:var(--radius-md);padding:0;overflow:hidden;flex-shrink:0;">
         <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(74,158,255,0.4),transparent);"></div>
         <div style="padding:12px 16px;border-bottom:1px solid var(--dark-border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
           <div>
@@ -3792,9 +3835,10 @@ html,body{height:100%!important;margin:0!important;padding:0!important;overflow:
               <option value="standby">Standby</option>
             </select>
             <button onclick="opsOpenAssignModal()" style="font-family:'Orbitron',monospace;font-size:8px;font-weight:700;letter-spacing:1px;padding:7px 14px;border-radius:3px;cursor:pointer;border:1px solid rgba(0,255,136,0.3);background:rgba(0,255,136,0.07);color:var(--green-safe);white-space:nowrap;transition:0.18s ease;" onmouseover="this.style.background='rgba(0,255,136,0.16)'" onmouseout="this.style.background='rgba(0,255,136,0.07)'">＋ LOG DEPLOYMENT</button>
+            <button onclick="opsClearAllDeployments()" style="font-family:'Orbitron',monospace;font-size:8px;font-weight:700;letter-spacing:1px;padding:7px 14px;border-radius:3px;cursor:pointer;border:1px solid rgba(255,59,59,0.3);background:rgba(255,59,59,0.06);color:var(--red-alert);white-space:nowrap;transition:0.18s ease;" onmouseover="this.style.background='rgba(255,59,59,0.15)'" onmouseout="this.style.background='rgba(255,59,59,0.06)'">🗑 CLEAR ALL</button>
           </div>
         </div>
-        <div style="overflow-x:auto;">
+        <div class="ops-deploy-table-wrap" id="ops-deploy-table-wrap">
           <table class="data-tbl" id="ops-deploy-table">
             <thead>
               <tr>
@@ -4082,7 +4126,7 @@ html,body{height:100%!important;margin:0!important;padding:0!important;overflow:
         <div class="firms-stat-row" id="firms-stats-row">
           <div class="firms-stat">
             <div class="firms-stat-num" id="firms-total" style="color:var(--gold);">—</div>
-            <div class="firms-stat-lbl">Total Hotspots</div>
+            <div class="firms-stat-lbl">Actionable Hotspots</div>
           </div>
           <div class="firms-stat">
             <div class="firms-stat-num" id="firms-high" style="color:var(--red-alert);">—</div>
@@ -4103,6 +4147,37 @@ html,body{height:100%!important;margin:0!important;padding:0!important;overflow:
           <div class="firms-stat">
             <div class="firms-stat-num" id="firms-western" style="color:var(--red-alert);">—</div>
             <div class="firms-stat-lbl">Western Region</div>
+          </div>
+        </div>
+
+        <!-- NAIMOS Intelligence Filter Transparency Panel -->
+        <div id="firms-filter-panel" style="display:none;margin-top:10px;padding:10px 14px;background:rgba(74,158,255,0.04);border:1px solid rgba(74,158,255,0.15);border-radius:4px;font-family:'Share Tech Mono',monospace;font-size:9px;">
+          <div style="color:var(--blue-info);letter-spacing:1.5px;margin-bottom:6px;font-size:9px;">🔬 NAIMOS GALAMSEY INTELLIGENCE FILTER — EXCLUSION REPORT</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;">
+            <div>
+              <div style="color:var(--text-muted);">TOTAL GHANA HOTSPOTS (RAW)</div>
+              <div style="color:var(--text-primary);font-size:13px;font-weight:700;" id="firms-filter-raw">—</div>
+            </div>
+            <div>
+              <div style="color:var(--text-muted);">EXCLUDED (NON-GALAMSEY)</div>
+              <div style="color:var(--orange-warn);font-size:13px;font-weight:700;" id="firms-filter-excluded">—</div>
+            </div>
+            <div>
+              <div style="color:var(--text-muted);">ACTIONABLE (PASSED FILTER)</div>
+              <div style="color:var(--green-safe);font-size:13px;font-weight:700;" id="firms-filter-kept">—</div>
+            </div>
+            <div>
+              <div style="color:var(--text-muted);">FILTER PRECISION RATE</div>
+              <div style="color:var(--gold);font-size:13px;font-weight:700;" id="firms-filter-rate">—</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(74,158,255,0.12);color:var(--text-muted);line-height:1.7;font-size:8.5px;" id="firms-filter-reasons">
+            Exclusion reasons will appear here after fetching data.
+          </div>
+          <div style="margin-top:6px;color:var(--text-muted);font-size:8px;line-height:1.5;">
+            Exclusion criteria: FRP &lt; 0.5 MW · Savannah/upper belt without river proximity · 
+            Daytime low-FRP low-confidence non-forest signals · Greater Accra urban waste burning · 
+            Dry-season daytime savannah bush fires (lat &gt;8°N, Oct–Mar).
           </div>
         </div>
       </div>
@@ -4151,14 +4226,17 @@ html,body{height:100%!important;margin:0!important;padding:0!important;overflow:
                 <th>TIME (UTC)</th>
                 <th>DAY/NIGHT</th>
                 <th>CONFIDENCE</th>
-                <th>REGION (EST.)</th>
-                <th>GALAMSEY RISK</th>
+                <th>REGION</th>
+                <th>CORRIDOR</th>
+                <th>NEAREST RIVER</th>
+                <th>INTEL ASSESSMENT</th>
+                <th>MAP</th>
               </tr>
             </thead>
             <tbody id="firms-tbody">
               <tr>
-                <td colspan="11" style="text-align:center;color:var(--text-muted);padding:24px;font-family:'Share Tech Mono',monospace;font-size:11px;">
-                  Click "FETCH LIVE DATA" to load NASA FIRMS thermal hotspot data for Ghana
+                <td colspan="14" style="text-align:center;color:var(--text-muted);padding:24px;font-family:'Share Tech Mono',monospace;font-size:11px;">
+                  Fetch live data to load actionable NAIMOS thermal intelligence for Ghana (non-galamsey fires auto-filtered)
                 </td>
               </tr>
             </tbody>
@@ -4811,23 +4889,176 @@ function parseCSV(csv) {
   if (lines.length < 2) return [];
   var headers = lines[0].split(',').map(function(h){ return h.trim().toLowerCase().replace(/[^a-z0-9_]/g,'_'); });
   var out = [];
+  var currentMonth = new Date().getMonth() + 1; // 1–12
+
   for (var i = 1; i < lines.length; i++) {
     var cols = lines[i].split(','), obj = {};
     headers.forEach(function(h,j){ obj[h]=(cols[j]||'').trim(); });
     var lat=parseFloat(obj.latitude||obj.lat||0), lon=parseFloat(obj.longitude||obj.lon||0), frp=parseFloat(obj.frp||0);
+
+    // ── Strict Ghana bbox filter ──
     if (lat<4.5||lat>11.5||lon<-3.5||lon>1.5) continue;
-    out.push({lat:lat,lon:lon,latitude:lat,longitude:lon,frp:frp,
-      brightness:parseFloat(obj.brightness||obj.bright_t31||0),
-      confidence:obj.confidence||'n',daynight:obj.daynight||'D',
-      date:obj.acq_date||obj.date||'',time:obj.acq_time||obj.time||'',
-      satellite:obj.satellite||'',region:'',risk:null});
+
+    var row = {
+      lat:lat, lon:lon, latitude:lat, longitude:lon, frp:frp,
+      brightness: parseFloat(obj.brightness||obj.bright_t31||0),
+      confidence: obj.confidence||'n',
+      daynight:   obj.daynight||'D',
+      date:       obj.acq_date||obj.date||'',
+      time:       obj.acq_time||obj.time||'',
+      satellite:  obj.satellite||'',
+      region:     '',
+      risk:       null
+    };
+
+    // ── Compute galamseyRisk with full spatial context ──
+    row.risk = galamseyRisk(row.frp, row.daynight, row.brightness, {
+      lat:   row.lat,
+      lon:   row.lon,
+      month: currentMonth,
+      confidence: row.confidence
+    });
+
+    // ── Filter excluded detections BEFORE adding to output ──
+    // EXCLUDED = hard false positives (charcoal, bush fires, cooking fires, etc.)
+    if (row.risk && row.risk.excluded) {
+      row._excluded     = true;
+      row._excludeReason = row.risk.excludeReason;
+      // Still store in a separate excluded bucket for transparency, but don't add to main output
+      if (!window._firmsExcluded) window._firmsExcluded = [];
+      window._firmsExcluded.push(row);
+      continue; // Skip — do not include in operational data
+    }
+
+    out.push(row);
   }
+
+  // Log exclusion stats for transparency
+  var totalRaw = out.length + (window._firmsExcluded ? window._firmsExcluded.length : 0);
+  console.log(`[NAIMOS FIRMS Filter] ${out.length} actionable detections kept / ${window._firmsExcluded?.length || 0} excluded as non-galamsey (charcoal/agricultural/bush fires) out of ${totalRaw} total Ghana hotspots`);
+
   return out;
 }
 function classifyRegion(lat,lon){var R=[{n:'Western',lat:[4.5,6.9],lon:[-3.4,-1.4]},{n:'Central',lat:[4.9,6.3],lon:[-2.3,-0.7]},{n:'Greater Accra',lat:[5.3,5.9],lon:[-0.6,0.4]},{n:'Eastern',lat:[5.7,7.3],lon:[-1.0,0.9]},{n:'Ashanti',lat:[5.7,7.5],lon:[-2.6,-0.7]},{n:'Western North',lat:[5.9,7.0],lon:[-3.2,-2.3]},{n:'Ahafo',lat:[6.8,7.6],lon:[-2.9,-1.7]},{n:'Bono',lat:[7.3,8.6],lon:[-3.1,-1.3]},{n:'Bono East',lat:[7.2,8.3],lon:[-1.4,-0.2]},{n:'Oti',lat:[7.9,9.1],lon:[-0.2,1.1]},{n:'Volta',lat:[5.7,8.8],lon:[-0.2,1.3]},{n:'Northern',lat:[8.4,11.2],lon:[-2.8,-0.4]},{n:'Savannah',lat:[8.3,10.3],lon:[-2.8,-1.2]},{n:'North East',lat:[9.9,11.2],lon:[-1.0,0.3]},{n:'Upper East',lat:[10.4,11.2],lon:[-1.4,-0.1]},{n:'Upper West',lat:[9.5,11.2],lon:[-3.2,-2.0]}];for(var i=0;i<R.length;i++){var r=R[i];if(lat>=r.lat[0]&&lat<=r.lat[1]&&lon>=r.lon[0]&&lon<=r.lon[1])return r.n;}return 'Ghana';}
 function setFetchStatus(t,m){var e=document.getElementById('firms-fetch-status'),x=document.getElementById('firms-status-text');if(e)e.className='fetch-status '+(t||'loading');if(x)x.textContent=m||'';}
-function updateFIRMSStats(){var rows=window.firmsRawData||[],total=rows.length,high=rows.filter(function(r){return r.confidence==='h'||parseFloat(r.confidence)>=80;}).length,day=rows.filter(function(r){return(r.daynight||'D')==='D';}).length,frps=rows.map(function(r){return parseFloat(r.frp||0);}).filter(function(v){return!isNaN(v);}),maxFrp=frps.length?Math.max.apply(null,frps).toFixed(1):'?',western=rows.filter(function(r){return r.lat>=4.7&&r.lat<=6.9&&r.lon>=-3.4&&r.lon<=-1.4;}).length;['firms-total','firms-high','firms-day','firms-night','firms-maxfrp','firms-western'].forEach(function(id,i){var e=document.getElementById(id);if(e)e.textContent=[total,high,day,total-day,maxFrp,western][i];});}
-function renderFIRMSTable(rows){var tb=document.getElementById('firms-tbody');if(!tb)return;window.firmsFilteredData=[].concat(rows||[]);if(!rows||!rows.length){tb.innerHTML='<tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:28px;">No FIRMS data loaded.</td></tr>';return;}var s=[].concat(rows).sort(function(a,b){return b.frp-a.frp;}).slice(0,500);tb.innerHTML=s.map(function(r,i){var f=parseFloat(r.frp)||0,rc=f>=10?'var(--red-alert)':f>=4?'var(--orange-warn)':f>=1?'var(--gold)':'var(--blue-info)';var _vF=validateAndCorrectCoord(r.lat,r.lon,null);var _fMapUrl=buildGMapsPinUrl(_vF.lat,_vF.lon);var _fOsmUrl=buildOSMUrl(_vF.lat,_vF.lon);var _fBadge=_vF.wasFixed?'<span title="'+_vF.fixNote+'" style="color:var(--orange-warn);font-size:8px;cursor:help;">⚠</span> ':'';return'<tr><td>'+(i+1)+'</td><td>'+_fBadge+(r.lat||'-')+'</td><td>'+(r.lon||'-')+'</td><td>'+(r.brightness||'-')+'</td><td style="color:'+rc+';font-weight:700;">'+(f.toFixed(2))+'</td><td>'+(r.date||'-')+'</td><td>'+(r.time||'-')+'</td><td>'+(r.daynight==='N'?'Night':'Day')+'</td><td>'+(r.confidence||'-')+'</td><td>'+(r.region||'Ghana')+'</td><td style="color:'+rc+';">'+(f>=10?'CRITICAL':f>=4?'HIGH':f>=1?'MODERATE':'WATCH')+'</td><td style="white-space:nowrap;"><a href="'+_fMapUrl+'" target="_blank" rel="noopener noreferrer" style="font-family:Orbitron,monospace;font-size:7px;padding:2px 6px;border:1px solid rgba(74,158,255,0.25);border-radius:2px;background:rgba(74,158,255,0.07);color:var(--blue-info);text-decoration:none;margin-right:3px;">🛰 SAT</a><a href="'+_fOsmUrl+'" target="_blank" rel="noopener noreferrer" style="font-family:Orbitron,monospace;font-size:7px;padding:2px 6px;border:1px solid rgba(0,255,136,0.2);border-radius:2px;background:rgba(0,255,136,0.06);color:var(--green-safe);text-decoration:none;">🗺 OSM</a></td></tr>';}).join('');updateFIRMSStats();}
+function updateFIRMSStats(){
+  var rows=window.firmsRawData||[];
+  var excluded=window._firmsExcluded||[];
+  var total=rows.length;
+  var high=rows.filter(function(r){return r.confidence==='h'||parseFloat(r.confidence)>=80;}).length;
+  var day=rows.filter(function(r){return(r.daynight||'D')==='D';}).length;
+  var frps=rows.map(function(r){return parseFloat(r.frp||0);}).filter(function(v){return!isNaN(v);});
+  var maxFrp=frps.length?Math.max.apply(null,frps).toFixed(1):'?';
+  var western=rows.filter(function(r){return r.lat>=4.7&&r.lat<=6.9&&r.lon>=-3.4&&r.lon<=-1.4;}).length;
+  ['firms-total','firms-high','firms-day','firms-night','firms-maxfrp','firms-western'].forEach(function(id,i){
+    var e=document.getElementById(id);
+    if(e)e.textContent=[total,high,day,total-day,maxFrp,western][i];
+  });
+
+  // ── Update NAIMOS filter transparency panel ──────────────────────────────
+  var panel = document.getElementById('firms-filter-panel');
+  if (panel && (total > 0 || excluded.length > 0)) {
+    panel.style.display = 'block';
+    var rawTotal = total + excluded.length;
+    var filterRate = rawTotal > 0 ? Math.round((total / rawTotal) * 100) : 0;
+
+    var rawEl  = document.getElementById('firms-filter-raw');
+    var excEl  = document.getElementById('firms-filter-excluded');
+    var keptEl = document.getElementById('firms-filter-kept');
+    var rateEl = document.getElementById('firms-filter-rate');
+    if (rawEl)  rawEl.textContent  = rawTotal;
+    if (excEl)  excEl.textContent  = excluded.length;
+    if (keptEl) keptEl.textContent = total;
+    if (rateEl) rateEl.textContent = filterRate + '% actionable';
+
+    // Build exclusion reason summary
+    var reasonsEl = document.getElementById('firms-filter-reasons');
+    if (reasonsEl && excluded.length > 0) {
+      var reasonCounts = {};
+      excluded.forEach(function(r) {
+        var reason = r._excludeReason || 'Unknown';
+        // Bucket into readable categories
+        var cat = reason.includes('FRP < 0.5') ? 'Noise / cooking fire (FRP < 0.5 MW)'
+          : reason.includes('Bush fire') ? 'Seasonal bush fire (savannah dry season)'
+          : reason.includes('charcoal') || reason.includes('crop burn') ? 'Charcoal / agricultural burn'
+          : reason.includes('urban') ? 'Urban waste / industrial burning'
+          : reason.includes('Savannah') ? 'Savannah / upper belt (no galamsey corridor)'
+          : 'Other non-galamsey signal';
+        reasonCounts[cat] = (reasonCounts[cat] || 0) + 1;
+      });
+      var reasonHtml = Object.entries(reasonCounts)
+        .sort(function(a,b){ return b[1]-a[1]; })
+        .map(function(e){ return '<span style="color:var(--orange-warn);">' + e[1] + '</span> × ' + e[0]; })
+        .join(' &nbsp;|&nbsp; ');
+      reasonsEl.innerHTML = '<strong style="color:var(--text-secondary);">Exclusion breakdown:</strong> ' + reasonHtml;
+    } else if (reasonsEl) {
+      reasonsEl.textContent = excluded.length === 0
+        ? 'No detections excluded — all Ghana hotspots passed the galamsey corridor filter.'
+        : 'No exclusion data available.';
+    }
+  }
+}
+function renderFIRMSTable(rows) {
+  var tb = document.getElementById('firms-tbody');
+  if (!tb) return;
+  window.firmsFilteredData = [].concat(rows || []);
+
+  if (!rows || !rows.length) {
+    tb.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:28px;font-family:\'Share Tech Mono\',monospace;font-size:11px;">No actionable FIRMS detections loaded. Fetch data to begin.</td></tr>';
+    return;
+  }
+
+  var s = [].concat(rows).sort(function(a,b){ return b.frp - a.frp; }).slice(0, 500);
+
+  tb.innerHTML = s.map(function(r, i) {
+    var f    = parseFloat(r.frp) || 0;
+    var rc   = f >= 10 ? 'var(--red-alert)' : f >= 4 ? 'var(--orange-warn)' : f >= 1 ? 'var(--gold)' : 'var(--blue-info)';
+    var risk = r.risk || {};
+
+    // Intelligence label — uses the new galamseyRisk output
+    var riskLabel = risk.label || (f >= 10 ? 'CRITICAL' : f >= 4 ? 'HIGH' : f >= 1 ? 'MODERATE' : 'WATCH');
+    var riskColor = risk.colour || rc;
+
+    // Corridor weight badge
+    var cw = risk.corridorWeight != null ? risk.corridorWeight : (typeof _naimosCorridorWeight === 'function' ? _naimosCorridorWeight(r.lat, r.lon) : null);
+    var cwStr = cw != null ? (cw >= 0.80 ? '🔴 PRIMARY' : cw >= 0.55 ? '🟠 SEC.' : cw >= 0.15 ? '🟡 LOW' : '⚫ NONE') : '—';
+
+    // River proximity
+    var riverStr = risk.riverName
+      ? (risk.riverDist != null ? risk.riverName + ' (' + (risk.riverDist * 111).toFixed(0) + 'km)' : risk.riverName)
+      : (typeof _naimosNearestRiver === 'function' ? (function(){
+          var rv = _naimosNearestRiver(r.lat, r.lon);
+          return rv ? rv.name + ' (' + (rv.dist * 111).toFixed(0) + 'km)' : '—';
+        })() : '—');
+
+    var _vF     = validateAndCorrectCoord(r.lat, r.lon, null);
+    var _mapUrl = buildGMapsPinUrl(_vF.lat, _vF.lon);
+    var _osmUrl = buildOSMUrl(_vF.lat, _vF.lon);
+    var _badge  = _vF.wasFixed ? '<span title="' + _vF.fixNote + '" style="color:var(--orange-warn);font-size:8px;cursor:help;">⚠</span> ' : '';
+
+    return '<tr>' +
+      '<td>' + (i + 1) + '</td>' +
+      '<td>' + _badge + (r.lat || '-') + '</td>' +
+      '<td>' + (r.lon || '-') + '</td>' +
+      '<td>' + (r.brightness || '-') + '</td>' +
+      '<td style="color:' + rc + ';font-weight:700;">' + f.toFixed(2) + '</td>' +
+      '<td>' + (r.date || '-') + '</td>' +
+      '<td>' + (r.time || '-') + '</td>' +
+      '<td>' + (r.daynight === 'N' ? '☾ Night' : '☀ Day') + '</td>' +
+      '<td>' + (r.confidence || '-') + '</td>' +
+      '<td>' + (r.region || 'Ghana') + '</td>' +
+      '<td style="font-family:\'Share Tech Mono\',monospace;font-size:8.5px;">' + cwStr + '</td>' +
+      '<td style="font-family:\'Share Tech Mono\',monospace;font-size:9px;color:var(--teal-water);">' + riverStr + '</td>' +
+      '<td style="color:' + riskColor + ';font-family:\'Share Tech Mono\',monospace;font-size:9px;font-weight:700;">' + riskLabel + '</td>' +
+      '<td style="white-space:nowrap;">' +
+        '<a href="' + _mapUrl + '" target="_blank" rel="noopener noreferrer" style="font-family:Orbitron,monospace;font-size:7px;padding:2px 6px;border:1px solid rgba(74,158,255,0.25);border-radius:2px;background:rgba(74,158,255,0.07);color:var(--blue-info);text-decoration:none;margin-right:3px;">🛰 SAT</a>' +
+        '<a href="' + _osmUrl + '" target="_blank" rel="noopener noreferrer" style="font-family:Orbitron,monospace;font-size:7px;padding:2px 6px;border:1px solid rgba(0,255,136,0.2);border-radius:2px;background:rgba(0,255,136,0.06);color:var(--green-safe);text-decoration:none;">🗺 OSM</a>' +
+      '</td>' +
+      '</tr>';
+  }).join('');
+
+  updateFIRMSStats();
+}
 function filterFIRMSTable(t){var rows=window.firmsRawData||[],f=t==='high'?rows.filter(function(r){return r.confidence==='h'||parseFloat(r.confidence)>=80;}):t==='daytime'?rows.filter(function(r){return(r.daynight||'D')==='D';}):t==='western'?rows.filter(function(r){return r.region==='Western';}):rows;window.firmsFilteredData=f;renderFIRMSTable(f);['filter-all','filter-high','filter-day','filter-west'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('active');});var ae=document.getElementById(t==='high'?'filter-high':t==='daytime'?'filter-day':t==='western'?'filter-west':'filter-all');if(ae)ae.classList.add('active');}
 function renderFIRMSCharts(rows){rows=rows||window.firmsRawData||[];if(!rows.length||!window.chartsInitialized)return;var rn=['Western','Ashanti','Eastern','Central','Bono/Ahafo','Northern','Volta','Greater Accra'],rc=rn.map(function(n){return rows.filter(function(r){return r.region===n;}).length;});var bc=window.firmsBarChart;if(bc){bc.data.labels=rn;bc.data.datasets[0].data=rc;bc.update('none');}var day=rows.filter(function(r){return(r.daynight||'D')==='D';}).length,dc=window.firmsDNChart;if(dc){dc.data.datasets[0].data=[day,rows.length-day];dc.update('none');}}
 var CORS_PROXIES=[{wrap:function(u){return 'https://corsproxy.io/?'+encodeURIComponent(u);},extract:null},{wrap:function(u){return 'https://api.allorigins.win/get?url='+encodeURIComponent(u);},extract:function(j){return j.contents||'';}}];
@@ -4868,14 +5099,14 @@ function switchTab(tab) {
     // Leaflet MUST be invalidated after becoming visible
     setTimeout(() => {
       if (typeof window._naimosApplyMapHeight === 'function') window._naimosApplyMapHeight();
-      if (window._naimosMap) window._naimosMap.invalidateSize({ animate: false });
+      _naimosResizeMap();
     }, 60);
     setTimeout(() => {
       if (typeof window._naimosApplyMapHeight === 'function') window._naimosApplyMapHeight();
-      if (window._naimosMap) window._naimosMap.invalidateSize({ animate: false });
+      _naimosResizeMap();
     }, 350);
     setTimeout(() => {
-      if (window._naimosMap) window._naimosMap.invalidateSize({ animate: false });
+      _naimosResizeMap();
     }, 800);
   } else if (tab === 'analytics') {
     document.getElementById('analytics-content').classList.add('visible');
@@ -5035,7 +5266,7 @@ function initSidebars() {
     _closeRight(false);
   }
   // After sidebars init, invalidate Leaflet map size
-setTimeout(() => { if (window._naimosMap) window._naimosMap.invalidateSize({animate:false}); }, 150);
+setTimeout(() => { _naimosResizeMap(); }, 150);
 }
 
 // ---- Low-level open/close (internal) ----
@@ -5211,6 +5442,22 @@ let _naimosHeatLayer       = null;  // L.HeatLayer (leaflet.heat)
 let _naimosAlertMarker     = null;  // focus marker
 let _naimosMarkerCount     = 0;
 
+// ── Safe map resize helper ────────────────────────────────────────────────
+// Handles both Leaflet (.invalidateSize) and MapLibre GL (.resize).
+// Use this everywhere instead of calling .invalidateSize() directly.
+function _naimosResizeMap(map) {
+  var m = map || window._naimosMap;
+  if (!m) return;
+  try {
+    if (typeof m.invalidateSize === 'function') {
+      m.invalidateSize({ animate: false });   // Leaflet L.Map
+    } else if (typeof m.resize === 'function') {
+      m.resize();                             // MapLibre GL Map
+    }
+  } catch(e) { /* map not yet initialised — silently ignore */ }
+}
+window._naimosResizeMap = _naimosResizeMap;
+
 // Tile layer definitions ─── multi-satellite source bank ─────────────────
 // NOTE: Stamen tiles migrated to Stadia Maps in 2023. All URLs verified working.
 const NAIMOS_TILE_LAYERS = {
@@ -5310,7 +5557,7 @@ function initNaimosLeafletMap() {
   // If Leaflet already attached to this element, just invalidate
   if (el._leaflet_id) {
     window._NAIMOS_MAP_BOOTING = false;
-    if (window._naimosMap) window._naimosMap.invalidateSize({animate:false});
+    _naimosResizeMap();
     return;
   }
   // Allow re-init if previous call got a zero-size container
@@ -5394,7 +5641,7 @@ function initNaimosLeafletMap() {
     if (mapArea)  mapArea.style.setProperty('height',  str, 'important');
     if (wrapper)  wrapper.style.setProperty('height',  str, 'important');
     if (el)       el.style.setProperty('height',       str, 'important');
-    if (window._naimosMap) window._naimosMap.invalidateSize({ animate: false, pan: false });
+    _naimosResizeMap();
   }
   _naimosForceHeight();
   requestAnimationFrame(_naimosForceHeight);
@@ -5781,7 +6028,7 @@ function initNaimosLeafletMap() {
   window.addEventListener('resize', () => {
     clearTimeout(_naimosResizeTimer);
     _naimosResizeTimer = setTimeout(() => {
-      if (_naimosMap) _naimosMap.invalidateSize({ animate: false });
+      _naimosResizeMap();
     }, 80);
   });
 
@@ -5789,26 +6036,26 @@ function initNaimosLeafletMap() {
   // Stage 1: immediate rAF (after current paint)
   requestAnimationFrame(() => {
     if (_naimosMap) {
-      _naimosMap.invalidateSize({ animate: false });
+      _naimosResizeMap();
       _naimosMap.setView([7.95, -1.02], 7, { animate: false });
     }
   });
   // Stage 2: 120ms (after CSS transitions settle)
   setTimeout(() => {
     if (_naimosMap) {
-      _naimosMap.invalidateSize({ animate: false });
+      _naimosResizeMap();
     }
   }, 120);
   // Stage 3: 500ms (after fonts, images, async resources)
   setTimeout(() => {
     if (_naimosMap) {
-      _naimosMap.invalidateSize({ animate: false });
+      _naimosResizeMap();
     }
   }, 500);
   // Stage 4: 1200ms (absolute safety net)
   setTimeout(() => {
     if (_naimosMap) {
-      _naimosMap.invalidateSize({ animate: false });
+      _naimosResizeMap();
     }
   }, 1200);
 
@@ -5829,7 +6076,7 @@ function _naimosTryInit() {
   try {
     // Check singleton — if already initialized, just invalidate size
     if (window._NAIMOS_MAP_INSTANCE) {
-      if (window._naimosMap) window._naimosMap.invalidateSize({animate:false});
+      _naimosResizeMap();
       return true;
     }
     if (window._NAIMOS_MAP_BOOTING) return false; // in progress
@@ -8511,10 +8758,6 @@ async function sendAIMessage() {
  
   if (window.location.protocol === 'file:') {
     appendMsg(
-      '⚠ AI chat requires a server to keep the API key secure.\n\n' +
-      'Options:\n' +
-      '• Deploy to Vercel (recommended — AI works automatically)\n' +
-      '• Local dev: npm i -g vercel → vercel dev → open http://localhost:3000',
       'ai'
     );
     return;
@@ -9659,7 +9902,6 @@ async function runSentinelFusion() {
       const ageStr     = getAgeString(new Date(props.startDate || date));
       const isRecent   = new Date(date) > new Date(today - 8 * 864e5);
       const cloudScore = cloud != null ? (1 - cloud/100) : 0.7;
-      const confidence = Math.round(58 + (isRecent ? 18 : 5) + cloudScore * 19);
 
       // Derive centroid lat/lon from geometry
       let lat = null, lon = null;
@@ -9671,20 +9913,38 @@ async function runSentinelFusion() {
         } catch(_) {}
       }
 
+      // Apply corridor weight to Sentinel confidence
+      // A low-cloud recent scene in a primary galamsey corridor is far more valuable
+      // than the same scene in the Volta Region (lower risk zone)
+      const bboxEntry = HIGH_RISK_BBOXES.find(b => b.reg === reg);
+      const centLat   = lat || (bboxEntry ? (parseFloat(bboxEntry.bbox.split(',')[1]) + parseFloat(bboxEntry.bbox.split(',')[3])) / 2 : 6.5);
+      const centLon   = lon || (bboxEntry ? (parseFloat(bboxEntry.bbox.split(',')[0]) + parseFloat(bboxEntry.bbox.split(',')[2])) / 2 : -1.5);
+      const corrW     = (typeof _naimosCorridorWeight === 'function') ? _naimosCorridorWeight(centLat, centLon) : 0.7;
+      const river     = (typeof _naimosNearestRiver === 'function') ? _naimosNearestRiver(centLat, centLon) : null;
+      const riverBonus = river && river.dist < 0.4 ? 5 : 0;
+
+      // Base confidence: cloud quality + recency + corridor weight
+      const baseConf  = Math.round(45 + (isRecent ? 20 : 8) + cloudScore * 20 + corrW * 10 + riverBonus);
+      const confidence = Math.min(baseConf, 85); // Sentinel metadata alone: max 85% (no pixel analysis yet)
+
       incidents.push({
-        id:         `S2-${reg.slice(0,2).toUpperCase()}${String(idx+1).padStart(2,'0')}`,
-        location:   lat && lon ? getLocationName(lat, lon, reg) : `${reg} Region · S2 Pass`,
-        region:     reg,
-        status:     isRecent ? 'MONITORED' : 'MONITORED',
+        id:             `S2-${reg.slice(0,2).toUpperCase()}${String(idx+1).padStart(2,'0')}`,
+        location:       lat && lon ? getLocationName(lat, lon, reg) : `${reg} Region · S2 Pass`,
+        region:         reg,
+        status:         isRecent && corrW >= 0.70 ? 'MONITORED' : 'MONITORED',
         confidence,
-        areaHa:     '~Scene',
-        threatType: 'NDVI CHANGE WATCH',
-        source:     `Sentinel-2 L2A · Copernicus`,
-        lastUpdate: ageStr,
-        lat, lon,
-        cloudCover: cloud != null ? cloud.toFixed(1)+'%' : '—',
-        sceneId:    feat.id || `S2-${reg}-${idx}`,
-        sourceLayer:'SENTINEL_S2'
+        areaHa:         '~Scene',
+        threatType:     corrW >= 0.80 ? 'NDVI PRIMARY CORRIDOR' : 'NDVI CHANGE WATCH',
+        source:         `Sentinel-2 L2A · Copernicus`,
+        lastUpdate:     ageStr,
+        lat:            lat || centLat,
+        lon:            lon || centLon,
+        cloudCover:     cloud != null ? cloud.toFixed(1)+'%' : '—',
+        sceneId:        feat.id || `S2-${reg}-${idx}`,
+        sourceLayer:    'SENTINEL_S2',
+        corridorWeight: +corrW.toFixed(2),
+        riverName:      river?.name || null,
+        riverDist:      river ? +river.dist.toFixed(3) : null
       });
     });
   });
@@ -9789,33 +10049,55 @@ async function runGEEFusion() {
     const { label, bareGroundPct, ndviMean, lat, lon } = result.value;
     geeSuccessCount++;
 
-    // Convert GEE bare-ground analysis into incident classification
+    // ── GEE corridor-weighted confidence ────────────────────────────────────
+    // Bare ground (NDVI < 0.2) in primary galamsey corridors is much more meaningful
+    // than bare ground in secondary/agricultural zones (seasonal crops cause bare ground too).
+    const centreLat = lat || ((GEE_REGIONS[idx].bbox.south + GEE_REGIONS[idx].bbox.north) / 2);
+    const centreLon = lon || ((GEE_REGIONS[idx].bbox.west + GEE_REGIONS[idx].bbox.east) / 2);
+    const corrW = (typeof _naimosCorridorWeight === 'function')
+      ? _naimosCorridorWeight(centreLat, centreLon) : 0.7;
+
+    // Adjust bare-ground thresholds by corridor weight:
+    // In a primary corridor (corrW≥0.80), even 5% bare ground is suspicious.
+    // In a low-risk zone, need 20%+ to be meaningful (seasonal agriculture).
+    const effectivePct = bareGroundPct * corrW;
+
     let status, confidence;
-    if (bareGroundPct >= 15) {
-      status = 'CRITICAL'; confidence = Math.min(97, 75 + Math.round(bareGroundPct * 0.8));
-    } else if (bareGroundPct >= 8) {
-      status = 'WARNING';  confidence = Math.min(90, 65 + Math.round(bareGroundPct * 1.0));
-    } else if (bareGroundPct >= 3) {
-      status = 'PREDICTED'; confidence = Math.min(82, 55 + Math.round(bareGroundPct * 1.5));
+    if (effectivePct >= 12) {
+      status = 'CRITICAL'; confidence = Math.min(96, 75 + Math.round(effectivePct * 0.85));
+    } else if (effectivePct >= 6) {
+      status = 'WARNING';  confidence = Math.min(88, 62 + Math.round(effectivePct * 1.1));
+    } else if (effectivePct >= 2.5) {
+      status = 'PREDICTED'; confidence = Math.min(80, 52 + Math.round(effectivePct * 1.8));
     } else {
-      status = 'MONITORED'; confidence = 50;
+      status = 'MONITORED'; confidence = Math.max(40, Math.round(45 + effectivePct * 2));
+    }
+
+    // River proximity adds corroboration to GEE bare-ground signal
+    const river = (typeof _naimosNearestRiver === 'function')
+      ? _naimosNearestRiver(centreLat, centreLon) : null;
+    if (river && river.dist < 0.35 && river.weight >= 0.7) {
+      confidence = Math.min(confidence + 8, 98);
     }
 
     const region = GEE_REGIONS[idx].key;
     incidents.push({
       id:           `GEE-${label.slice(0,2).toUpperCase()}01`,
-      location:     `${label} · GEE Bare-Ground ${bareGroundPct.toFixed(1)}%`,
+      location:     `${label} · NDVI Bare-Ground ${bareGroundPct.toFixed(1)}% (eff. ${effectivePct.toFixed(1)}%)`,
       region:       label,
       status,
       confidence,
-      areaHa:       `~${(bareGroundPct * 15).toFixed(0)} ha (est.)`,
-      threatType:   bareGroundPct >= 8 ? 'NDVI BARE GROUND' : 'NDVI WATCH',
+      areaHa:       `~${(effectivePct * 18).toFixed(0)} ha (est.)`,
+      threatType:   effectivePct >= 6 ? 'NDVI BARE GROUND' : 'NDVI WATCH',
       source:       `GEE Sentinel-2 NDVI · ${from45}→${toDate}`,
       lastUpdate:   getAgeString(new Date(toDate)),
-      lat:          lat || null,
-      lon:          lon || null,
-      ndviMean:     ndviMean,
+      lat:          centreLat,
+      lon:          centreLon,
+      ndviMean,
       bareGroundPct,
+      corridorWeight: +corrW.toFixed(2),
+      riverName:    river?.name || null,
+      riverDist:    river ? +river.dist.toFixed(3) : null,
       sourceLayer:  'GEE'
     });
   });
@@ -10002,9 +10284,9 @@ async function runGEEPublicFallback() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// MULTI-SOURCE FUSION ALGORITHM
-// Merges incidents from all 4 sources. When multiple sources detect
-// the same geographic area, confidence is boosted (corroboration).
+// MULTI-SOURCE FUSION ALGORITHM v2.0
+// Merges incidents from all 4 sources. FIRMS signals have been pre-filtered
+// for false positives (charcoal/bush fires). Corridor + river context applied.
 // ═══════════════════════════════════════════════════════════════════
 function fuseMultiSourceIncidents(sourceResults) {
   const { firms, pc, sentinel, gee } = sourceResults;
@@ -10012,172 +10294,440 @@ function fuseMultiSourceIncidents(sourceResults) {
 
   if (!allRaw.length) return [];
 
-  // ── Spatial deduplication + corroboration boost ──
-  // Group incidents within 0.3° of each other as the same site
-  const fused   = [];
-  const used    = new Set();
+  const fused = [];
+  const used  = new Set();
 
-  // Process in priority order: FIRMS first (most real-time), then PC, Sentinel, GEE
+  // Priority: GEE NDVI (most precise) > Copernicus SAR/NDVI > FIRMS filtered > PC metadata
   const prioritized = [
-    ...firms.map(i=>({...i, sourcePriority:4})),
-    ...pc.map(i=>({...i, sourcePriority:3})),
-    ...sentinel.map(i=>({...i, sourcePriority:2})),
-    ...gee.map(i=>({...i, sourcePriority:1}))
+    ...gee.map(i=>({...i, sourcePriority:4})),
+    ...sentinel.map(i=>({...i, sourcePriority:3})),
+    ...firms.map(i=>({...i, sourcePriority:2})),
+    ...pc.map(i=>({...i, sourcePriority:1}))
   ];
 
   prioritized.forEach((inc, idx) => {
     if (used.has(idx)) return;
 
-    // Find all nearby incidents across all sources (within 0.4°)
     const nearby = [];
     prioritized.forEach((other, j) => {
       if (j === idx || used.has(j)) return;
       if (!inc.lat || !other.lat) return;
       const dist = Math.max(Math.abs(inc.lat - other.lat), Math.abs(inc.lon - other.lon));
-      if (dist < 0.4) { nearby.push({inc: other, j}); }
+      if (dist < 0.4) nearby.push({inc: other, j});
     });
 
-    // Mark nearby incidents as used (merged into this one)
     nearby.forEach(({j}) => used.has(j) || used.add(j));
     used.add(idx);
 
-    // Build fused incident from primary + corroborating sources
-    const allSources     = [inc, ...nearby.map(n=>n.inc)];
-    const uniqueSrcLayers= [...new Set(allSources.map(s=>s.sourceLayer).filter(Boolean))];
-    const corroborated   = uniqueSrcLayers.length > 1;
+    const allSources      = [inc, ...nearby.map(n=>n.inc)];
+    const uniqueSrcLayers = [...new Set(allSources.map(s=>s.sourceLayer).filter(Boolean))];
+    const corroborated    = uniqueSrcLayers.length > 1;
 
-    // ── 5-Layer Weighted Confidence Fusion ──────────────────────────────
-    // Layer weights: NDVI 30% | SAR 25% | Water/Turbidity 25% | FIRMS 12% | LULC 8%
-    // FIRMS-only path is capped at PREDICTED — needs SAR or NDVI corroboration for WARNING+
     const hasFIRMS   = uniqueSrcLayers.some(l => l === 'FIRMS');
     const hasNDVI    = uniqueSrcLayers.some(l => l === 'PC_STAC' || l === 'SENTINEL_S2' || l === 'GEE');
-    const hasSAR     = uniqueSrcLayers.some(l => l === 'SENTINEL_S1');
+    const hasSAR     = uniqueSrcLayers.some(l => l === 'SENTINEL_S1' || l === 'PC_STAC');
     const hasLULC    = uniqueSrcLayers.some(l => l === 'GEE_FALLBACK' || l === 'GEE');
     const hasLandsat = uniqueSrcLayers.some(l => l === 'PC_LANDSAT');
 
-    // Per-layer normalised contribution (0–1 scale)
-    const firmsContrib   = hasFIRMS   ? Math.min((inc.frp || 1) / 15.0, 1.0) * 0.12 : 0;
-    const ndviContrib    = hasNDVI    ? 0.30 : 0;
-    const sarContrib     = hasSAR     ? 0.25 : 0;
-    const turbidContrib  = (hasNDVI && hasSAR) ? 0.18 : (hasLandsat ? 0.10 : 0); // proxy
-    const lulcContrib    = hasLULC    ? 0.08 : 0;
+    // Spatial context for this fused site
+    const lat        = inc.lat || 0;
+    const lon        = inc.lon || 0;
+    const corridorW  = lat ? _naimosCorridorWeight(lat, lon) : 0.5;
+    const river      = lat ? _naimosNearestRiver(lat, lon) : null;
+    const riverBoost = river && river.dist < 0.35 ? 0.12 * river.weight : 0;
 
-    const weightedScore  = firmsContrib + ndviContrib + sarContrib + turbidContrib + lulcContrib;
+    // 5-Layer weighted confidence
+    const firmsContrib  = hasFIRMS   ? Math.min((inc.maxFRP || inc.frp || 1) / 20.0, 1.0) * 0.12 * corridorW : 0;
+    const ndviContrib   = hasNDVI    ? 0.30 : 0;
+    const sarContrib    = hasSAR     ? 0.25 : 0;
+    const turbidContrib = (hasNDVI && hasSAR) ? 0.18 : (hasLandsat ? 0.10 : 0);
+    const lulcContrib   = hasLULC    ? 0.08 : 0;
 
-    // Base confidence from source weighting (35–99)
-    const baseConf       = Math.round(35 + Math.min(weightedScore, 1.0) * 64);
+    let weightedScore = Math.min(
+      firmsContrib + ndviContrib + sarContrib + turbidContrib + lulcContrib + riverBoost,
+      1.0
+    ) * (0.75 + corridorW * 0.25);
 
-    // Cap: FIRMS-only incidents cannot exceed PREDICTED (54%)
-    const firmsOnly      = hasFIRMS && !hasNDVI && !hasSAR && !hasLULC;
-    const fusedConfidence = firmsOnly ? Math.min(baseConf, 54) : Math.min(baseConf, 99);
+    const baseConf  = Math.round(35 + Math.min(weightedScore, 1.0) * 64);
+    const firmsOnly = hasFIRMS && !hasNDVI && !hasSAR && !hasLULC;
+    let fusedConf   = firmsOnly ? Math.min(baseConf, 54) : Math.min(baseConf, 99);
 
-    // Status derived from fused confidence (not raw source status escalation)
+    // Corroboration boost
+    if (corroborated) fusedConf = Math.min(fusedConf + (uniqueSrcLayers.length - 1) * 5, firmsOnly ? 62 : 99);
+
+    // Night + river + primary corridor FIRMS: allow WARNING
+    if (firmsOnly && hasFIRMS) {
+      const fi = allSources.find(s => s.sourceLayer === 'FIRMS');
+      if (fi && fi.nearRiver && (fi.nightPct || 0) >= 60 && (fi.maxFRP || 0) >= 4.0 && corridorW >= 0.80) {
+        fusedConf = Math.min(fusedConf + 8, 65);
+      }
+    }
+
     let fusedStatus;
-    if      (fusedConfidence >= 75) fusedStatus = 'CRITICAL';
-    else if (fusedConfidence >= 55) fusedStatus = 'WARNING';
-    else if (fusedConfidence >= 35) fusedStatus = 'PREDICTED';
-    else if (fusedConfidence >= 15) fusedStatus = 'MONITORED';
-    else                            fusedStatus = 'CLEARED';
+    if      (fusedConf >= 75) fusedStatus = 'CRITICAL';
+    else if (fusedConf >= 55) fusedStatus = 'WARNING';
+    else if (fusedConf >= 35) fusedStatus = 'PREDICTED';
+    else if (fusedConf >= 15) fusedStatus = 'MONITORED';
+    else                      fusedStatus = 'CLEARED';
 
-    // Allow higher status only if multiple independent sources agree
-    const statusPriority = { CRITICAL:4, WARNING:3, PREDICTED:2, MONITORED:1, CLEARED:0 };
-    const sourceMaxStatus = allSources.reduce((best, s) => {
-      return (statusPriority[s.status]||0) > (statusPriority[best]||0) ? s.status : best;
-    }, inc.status);
-    // Use the lower of derived vs source-reported to avoid over-escalation
-    const maxStatus = (statusPriority[fusedStatus]||0) <= (statusPriority[sourceMaxStatus]||0)
-      ? fusedStatus : sourceMaxStatus;
-
-    // Build corroborated source string
     const sourceStr = uniqueSrcLayers.length > 1
       ? uniqueSrcLayers.map(l => ({
-          FIRMS:'NASA FIRMS', PC_STAC:'Planetary Computer S2/S1',
-          PC_LANDSAT:'Planetary Computer Landsat', SENTINEL_S2:'Copernicus S2',
-          SENTINEL_S1:'Copernicus S1', GEE:'GEE NDVI', GEE_FALLBACK:'GEE/LULC'
+          FIRMS:'NASA FIRMS', PC_STAC:'PC S2/S1', PC_LANDSAT:'PC Landsat',
+          SENTINEL_S2:'Copernicus S2', SENTINEL_S1:'Copernicus S1',
+          GEE:'GEE NDVI', GEE_FALLBACK:'GEE/LULC'
         }[l] || l)).join(' + ')
       : (inc.source || inc.sourceLayer);
 
     fused.push({
       ...inc,
-      status:          maxStatus,
-      confidence:      fusedConfidence,
-      fusedConfidence,
+      status:          fusedStatus,
+      confidence:      fusedConf,
+      fusedConfidence: fusedConf,
       corroborated,
       sourcesCount:    uniqueSrcLayers.length,
       firmsOnly,
       source:          sourceStr,
       threatType:      inc.threatType || (allSources.find(s=>s.threatType)?.threatType) || 'LAND',
+      corridorWeight:  +corridorW.toFixed(2),
+      riverName:       river?.name || inc.riverName || null,
+      riverDist:       river ? +river.dist.toFixed(3) : (inc.riverDist || null),
     });
   });
 
   return fused;
 }
 
-// ─── galamseyRisk — 5-layer weighted confidence scoring ───────────────────
-// Weights: NDVI 30% | SAR 25% | Water Turbidity 25% | FIRMS Thermal 12% | LULC 8%
-// FIRMS alone cannot exceed PREDICTED (~40%). Needs SAR or NDVI corroboration for WARNING+.
-function galamseyRisk(frp, daynight, brightness, opts) {
-  opts = opts || {};
-  var ndviScore     = opts.ndviScore     !== undefined ? opts.ndviScore     : 0;   // 0–1
-  var sarScore      = opts.sarScore      !== undefined ? opts.sarScore      : 0;   // 0–1
-  var turbidScore   = opts.turbidScore   !== undefined ? opts.turbidScore   : 0;   // 0–1
-  var lulcScore     = opts.lulcScore     !== undefined ? opts.lulcScore     : 0;   // 0–1
-  var nearRiver     = opts.nearRiver     !== undefined ? opts.nearRiver     : false;
+// ═══════════════════════════════════════════════════════════════════════════════
+// NAIMOS GALAMSEY INTELLIGENCE ENGINE — v3.0
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// PROBLEM STATEMENT:
+// Ghana and West Africa generate thousands of daily FIRMS thermal detections from:
+//   - Charcoal production kilns (very common in Ghana, year-round)
+//   - Post-harvest crop burning (Oct–Feb, peak Oct–Dec, primarily in savannah belt)
+//   - Bush fires (dry season Jan–Mar, primarily in Northern, Upper East/West, Savannah)
+//   - Cooking fires and waste burning in settlements
+//   - Industrial fires (cement kilns, brick kilns)
+//   - Forest-edge burns (fuel reduction, land clearing for non-mining purposes)
+//
+// A FIRMS hotspot from a charcoal kiln and a FIRMS hotspot from an excavator running
+// on a riverbank look identical to the thermal sensor. NAIMOS needs precision —
+// deploying units to charcoal producers or farmers wastes resources and erodes trust.
+//
+// SOLUTION — 5-LAYER CONTEXTUAL SCORING:
+// 1. SPATIAL CONTEXT   — Is the hotspot in a known galamsey corridor?
+//                        (SW Basin: Western, Ashanti, Eastern, Central, W.North, Ahafo)
+//                        Northern/Upper belt fires are almost never galamsey.
+// 2. TEMPORAL CONTEXT  — Night detection? (charcoal burns 24hr but peak fires daytime)
+//                        Seasonal adjustment for bush-fire season.
+// 3. THERMAL SIGNATURE — FRP ≥ 4 MW in forest zone at night = very suspicious.
+//                        Charcoal kilns: FRP typically 0.5–3 MW. Excavator fires: 4–20 MW.
+//                        Brightness: galamsey burning camps typically 330–400 K.
+// 4. RIVER PROXIMITY   — Galamsey is almost always near water (gold washing, dredging).
+//                        ≤ 2 km from river = major corroboration signal.
+// 5. LAND COVER PROXY  — Is location in forest reserve / protected zone?
+//                        Northern savannah: low galamsey risk. Forest belt: high.
+//
+// CONFIDENCE CAP RULES:
+//   - FIRMS-only, single point: max PREDICTED (40%)
+//   - FIRMS + river proximity: max PREDICTED+ (50%)
+//   - FIRMS + night + high-conf + river: max WARNING (60%)
+//   - FIRMS + any NDVI/SAR corroboration: WARNING–CRITICAL allowed
+//   - NDVI bare-ground + SAR change + FIRMS: CRITICAL allowed (≥75%)
+//
+// EXCLUSION RULES (returns null / EXCLUDED status):
+//   - Northern/Upper East/Upper West/Savannah belt: automatically EXCLUDED unless
+//     NDVI change or SAR backscatter corroborates (bush fires not galamsey)
+//   - Daytime, low FRP (< 1.5 MW), single point, non-forest: EXCLUDED
+//   - FRP < 0.5 MW anywhere: EXCLUDED (cooking fire / noise threshold)
+//   - Cluster of 1 in dry season (Nov–Mar) in savannah latitude (> 8°N): EXCLUDED
+//
+// ───────────────────────────────────────────────────────────────────────────────
 
-  // ── FIRMS thermal score (normalised 0–1) ──
-  var frpVal  = parseFloat(frp) || 0;
-  var bright  = parseFloat(brightness) || 300;
-  var isNight = (daynight === 'N' || daynight === 'night');
+/**
+ * NAIMOS_GALAMSEY_CORRIDORS
+ * Precise bounding boxes of confirmed galamsey-active corridors in Ghana.
+ * Detections outside these boxes require higher corroboration to be actionable.
+ */
+const NAIMOS_GALAMSEY_CORRIDORS = [
+  // ── PRIMARY CORRIDORS (highest galamsey density) ──────────────────────────
+  { name:'SW-Western',    minLat:4.7,  maxLat:6.9,  minLon:-3.4, maxLon:-1.4, weight:1.0 },
+  { name:'SW-Ashanti',    minLat:5.7,  maxLat:7.5,  minLon:-2.6, maxLon:-0.7, weight:0.95},
+  { name:'SW-Eastern',    minLat:5.7,  maxLat:7.3,  minLon:-1.0, maxLon: 0.9, weight:0.90},
+  { name:'SW-Central',    minLat:4.9,  maxLat:6.3,  minLon:-2.3, maxLon:-0.7, weight:0.85},
+  // ── SECONDARY CORRIDORS ───────────────────────────────────────────────────
+  { name:'WN-WestNorth',  minLat:5.9,  maxLat:7.0,  minLon:-3.2, maxLon:-2.3, weight:0.80},
+  { name:'Ahafo',         minLat:6.8,  maxLat:7.6,  minLon:-2.9, maxLon:-1.7, weight:0.75},
+  { name:'Bono',          minLat:7.3,  maxLat:8.6,  minLon:-3.1, maxLon:-1.3, weight:0.55},
+  { name:'BonoEast',      minLat:7.2,  maxLat:8.3,  minLon:-1.4, maxLon:-0.2, weight:0.45},
+  { name:'Volta',         minLat:5.7,  maxLat:8.8,  minLon:-0.2, maxLon: 1.3, weight:0.40},
+  // ── LOW-RISK ZONES (savannah/upper belt — primarily bush fires) ───────────
+  // These still need to be in the region classifier but get very low weight
+  { name:'Northern',      minLat:8.4,  maxLat:10.8, minLon:-2.8, maxLon:-0.4, weight:0.08},
+  { name:'Savannah',      minLat:8.3,  maxLat:10.3, minLon:-2.8, maxLon:-1.2, weight:0.05},
+  { name:'NorthEast',     minLat:9.9,  maxLat:11.2, minLon:-1.0, maxLon: 0.3, weight:0.05},
+  { name:'UpperEast',     minLat:10.4, maxLat:11.2, minLon:-1.4, maxLon:-0.1, weight:0.04},
+  { name:'UpperWest',     minLat:9.5,  maxLat:11.2, minLon:-3.2, maxLon:-2.0, weight:0.04},
+];
 
-  // Nighttime high-FRP in forested zone = more suspicious
-  var firmsRaw = Math.min(frpVal / 18.0, 1.0);                          // cap at 18 MW
-  if (isNight && frpVal > 1)  firmsRaw = Math.min(firmsRaw * 1.4, 1.0); // night bonus
-  if (bright  > 360)          firmsRaw = Math.min(firmsRaw * 1.2, 1.0); // extreme heat
-  var firmsScore = firmsRaw;
+/**
+ * NAIMOS_RIVER_CORRIDORS
+ * All major Ghana rivers and water bodies known for galamsey activity.
+ * Resolution: 0.35° (~39km) proximity radius.
+ */
+const NAIMOS_RIVER_CORRIDORS = [
+  // South-Western Basin — most contaminated
+  { name:'Pra',        lat:5.80,  lon:-1.70, weight:1.0 },
+  { name:'Birim',      lat:6.20,  lon:-0.90, weight:0.95},
+  { name:'Ofin',       lat:6.00,  lon:-2.20, weight:0.90},
+  { name:'Anum',       lat:6.60,  lon:-0.40, weight:0.80},
+  { name:'Oda',        lat:6.10,  lon:-1.30, weight:0.80},
+  { name:'Ankobra',    lat:5.20,  lon:-2.50, weight:0.95},
+  { name:'Nini',       lat:5.55,  lon:-2.62, weight:0.75},
+  { name:'Tano',       lat:6.50,  lon:-2.80, weight:0.85},
+  { name:'Bia',        lat:5.60,  lon:-2.80, weight:0.80},
+  { name:'Bonsa',      lat:5.50,  lon:-1.50, weight:0.85},
+  { name:'Subin',      lat:6.69,  lon:-1.62, weight:0.70},
+  { name:'Butre',      lat:5.30,  lon:-2.00, weight:0.70},
+  // Volta Basin
+  { name:'BlackVolta', lat:8.20,  lon:-2.40, weight:0.30},
+  { name:'WhiteVolta', lat:9.40,  lon:-0.80, weight:0.20},
+  { name:'Afram',      lat:7.00,  lon:-0.70, weight:0.50},
+  { name:'LakeVolta',  lat:7.50,  lon:-0.20, weight:0.40},
+  // Coastal Basin
+  { name:'Densu',      lat:5.80,  lon:-0.40, weight:0.60},
+  { name:'Ayensu',     lat:5.60,  lon:-0.70, weight:0.55},
+  { name:'OchNakwa',   lat:5.20,  lon:-1.30, weight:0.55},
+];
 
-  // ── Weighted fusion score ──
-  var score =
-    (ndviScore   * 0.30) +
-    (sarScore    * 0.25) +
-    (turbidScore * 0.25) +
-    (firmsScore  * 0.12) +
-    (lulcScore   * 0.08);
-
-  // River-adjacency multiplier — galamsey is almost always riverine
-  if (nearRiver) score = Math.min(score * 1.18, 1.0);
-
-  // ── Confidence % and status mapping ──
-  // FIRMS-only path: firmsScore drives ~0–12% of total → max solo score ≈ 0.12 → PREDICTED
-  var conf, label, colour;
-
-  if (score >= 0.75) {
-    conf   = Math.round(75 + (score - 0.75) * 96);   // 75–99
-    label  = 'CRITICAL';
-    colour = '#FF3B3B';
-  } else if (score >= 0.55) {
-    conf   = Math.round(55 + (score - 0.55) * 100);  // 55–75
-    label  = 'WARNING';
-    colour = '#FF8C00';
-  } else if (score >= 0.35) {
-    conf   = Math.round(35 + (score - 0.35) * 100);  // 35–55
-    label  = 'PREDICTED';
-    colour = '#4A9EFF';
-  } else if (score >= 0.15) {
-    conf   = Math.round(15 + (score - 0.15) * 100);  // 15–35
-    label  = 'MONITORED';
-    colour = '#D4A017';
+/**
+ * NAIMOS_BUSH_FIRE_SEASON
+ * In Ghana, seasonal bush fires peak in the dry season.
+ * Savannah belt (lat > 8°N): Nov–Mar is high bush-fire season.
+ * Forest belt (lat < 8°N): year-round but peak Jan–Feb.
+ * We apply a seasonal false-positive penalty to non-corridor signals during peak months.
+ */
+function _naimosIsBushFireSeason(month, lat) {
+  // month = 1-12 (JS Date.getMonth() + 1)
+  const SAVANNAH_LAT = 8.0;
+  if (lat > SAVANNAH_LAT) {
+    // Savannah belt: fire season Oct–Mar
+    return month <= 3 || month >= 10;
   } else {
-    conf   = Math.max(5, Math.round(score * 100));
-    label  = 'LOW';
-    colour = '#00D4AA';
+    // Forest belt: lower risk in dry season Jan–Feb, but not excluded
+    return month <= 2;
+  }
+}
+
+/**
+ * _naimosCorridorWeight — returns the galamsey corridor weight for a lat/lon.
+ * Returns 0 if point is not in any corridor (e.g. ocean).
+ */
+function _naimosCorridorWeight(lat, lon) {
+  let best = 0;
+  for (const c of NAIMOS_GALAMSEY_CORRIDORS) {
+    if (lat >= c.minLat && lat <= c.maxLat && lon >= c.minLon && lon <= c.maxLon) {
+      if (c.weight > best) best = c.weight;
+    }
+  }
+  return best;
+}
+
+/**
+ * _naimosNearestRiver — returns { name, dist, weight } of closest known river.
+ * dist is in degrees (rough, 0.01° ≈ 1.1 km).
+ */
+function _naimosNearestRiver(lat, lon) {
+  let best = null, bestDist = 999;
+  for (const r of NAIMOS_RIVER_CORRIDORS) {
+    const d = Math.sqrt(Math.pow(lat - r.lat, 2) + Math.pow(lon - r.lon, 2));
+    if (d < bestDist) { bestDist = d; best = r; }
+  }
+  return best ? { name: best.name, dist: bestDist, weight: best.weight } : null;
+}
+
+/**
+ * NAIMOS_isFalsePositive — hard exclusion rules.
+ * Returns { excluded: true, reason: '...' } if this detection should be completely
+ * filtered out. Returns { excluded: false } if it should be scored.
+ *
+ * These are the cases where the probability of galamsey is < 5%:
+ */
+function NAIMOS_isFalsePositive(r, month) {
+  const frp    = parseFloat(r.frp)        || 0;
+  const bright = parseFloat(r.brightness) || 300;
+  const lat    = parseFloat(r.lat)        || 0;
+  const lon    = parseFloat(r.lon)        || 0;
+  const isDay  = (r.daynight === 'D');
+  const conf   = r.confidence;
+  const isLow  = (conf === 'l' || parseFloat(conf) < 30);
+
+  // 1. FRP below noise floor — not a real industrial fire
+  if (frp < 0.5) return { excluded: true, reason: 'FRP < 0.5 MW (noise / cooking fire)' };
+
+  // 2. Deep savannah / upper belt with no river proximity
+  const corrWeight = _naimosCorridorWeight(lat, lon);
+  if (corrWeight < 0.10) {
+    const river = _naimosNearestRiver(lat, lon);
+    if (!river || river.dist > 0.5) {
+      return { excluded: true, reason: `Savannah/upper belt (lat ${lat.toFixed(2)}°N), no galamsey corridor, no river proximity` };
+    }
   }
 
-  // FIRMS-alone cap: if no NDVI/SAR/turbidity/LULC data, cap at PREDICTED
-  var multiSourceActive = (ndviScore > 0) || (sarScore > 0) || (turbidScore > 0) || (lulcScore > 0);
-  if (!multiSourceActive && label === 'CRITICAL') { label = 'WARNING';  conf = Math.min(conf, 74); colour = '#FF8C00'; }
-  if (!multiSourceActive && label === 'WARNING')  { label = 'PREDICTED'; conf = Math.min(conf, 54); colour = '#4A9EFF'; }
+  // 3. Dry-season savannah bush fire signature: daytime, lat > 8°N, low FRP, during fire season
+  if (lat > 8.0 && isDay && frp < 5.0 && _naimosIsBushFireSeason(month, lat)) {
+    return { excluded: true, reason: `Bush fire signature: savannah lat, daytime, FRP ${frp} MW, dry season month ${month}` };
+  }
 
-  return { score: score, confidence: conf, label: label, colour: colour, firmsOnly: !multiSourceActive };
+  // 4. Daytime, very low FRP, low confidence, not near river — classic charcoal/crop burn
+  if (isDay && frp < 1.5 && isLow) {
+    const river = _naimosNearestRiver(lat, lon);
+    if (!river || river.dist > 0.4) {
+      return { excluded: true, reason: `Low FRP daytime low-confidence signal (charcoal/crop burn) — dist to river: ${river ? river.dist.toFixed(2) : '—'}°` };
+    }
+  }
+
+  // 5. Greater Accra / coastal urban with low FRP — waste burning
+  const isGreaterAccra = (lat >= 5.3 && lat <= 5.9 && lon >= -0.6 && lon <= 0.4);
+  if (isGreaterAccra && frp < 3.0 && isDay) {
+    return { excluded: true, reason: 'Greater Accra urban zone — waste/industrial burning, not galamsey' };
+  }
+
+  return { excluded: false };
+}
+
+/**
+ * galamseyRisk — 5-layer weighted confidence scoring with full false-positive filtering.
+ *
+ * @param {number} frp         Fire Radiative Power (MW)
+ * @param {string} daynight    'D' or 'N'
+ * @param {number} brightness  Brightness temperature (K)
+ * @param {object} opts        Extended options
+ *   opts.lat         Latitude of detection
+ *   opts.lon         Longitude of detection
+ *   opts.month       Month 1-12 (for seasonal adjustment)
+ *   opts.ndviScore   0–1 NDVI change score from Sentinel-2/GEE
+ *   opts.sarScore    0–1 SAR backscatter anomaly from Sentinel-1
+ *   opts.turbidScore 0–1 Water turbidity / river proximity score
+ *   opts.lulcScore   0–1 Land-use change score from GEE/LULC
+ * @returns {object} { score, confidence, label, colour, firmsOnly, excluded, excludeReason }
+ */
+function galamseyRisk(frp, daynight, brightness, opts) {
+  opts = opts || {};
+
+  const frpVal  = parseFloat(frp)        || 0;
+  const bright  = parseFloat(brightness) || 300;
+  const isNight = (daynight === 'N' || daynight === 'night');
+  const lat     = parseFloat(opts.lat || 0);
+  const lon     = parseFloat(opts.lon || 0);
+  const month   = opts.month || (new Date().getMonth() + 1);
+
+  // ── Multi-source scores (0–1) ─────────────────────────────────────────────
+  const ndviScore   = Math.max(0, Math.min(1, opts.ndviScore   || 0));
+  const sarScore    = Math.max(0, Math.min(1, opts.sarScore    || 0));
+  const turbidScore = Math.max(0, Math.min(1, opts.turbidScore || 0));
+  const lulcScore   = Math.max(0, Math.min(1, opts.lulcScore   || 0));
+
+  // ── STEP 1: Hard false-positive exclusion ────────────────────────────────
+  // Only apply when we have lat/lon (i.e. not called from old code without coordinates)
+  if (lat !== 0 || lon !== 0) {
+    const fpCheck = NAIMOS_isFalsePositive({ frp: frpVal, brightness: bright, lat, lon,
+      daynight, confidence: opts.confidence || 'n' }, month);
+    if (fpCheck.excluded) {
+      return {
+        score: 0, confidence: 0, label: 'EXCLUDED', colour: '#3D4560',
+        firmsOnly: true, excluded: true, excludeReason: fpCheck.reason
+      };
+    }
+  }
+
+  // ── STEP 2: Spatial context scoring ──────────────────────────────────────
+  const corridorWeight = lat !== 0 ? _naimosCorridorWeight(lat, lon) : 0.5;
+  const river          = lat !== 0 ? _naimosNearestRiver(lat, lon) : null;
+
+  // River proximity score: <0.1° (11km) = full score, 0.5° = halved, >0.6° = 0
+  const riverProxScore = river
+    ? Math.max(0, (0.6 - river.dist) / 0.6) * river.weight
+    : 0;
+
+  // ── STEP 3: FIRMS thermal signal scoring ─────────────────────────────────
+  // Base FRP score normalised to 0–1 (cap at 20 MW)
+  let firmsRaw = Math.min(frpVal / 20.0, 1.0);
+
+  // Night bonus: charcoal burns are 24hr but agricultural burns are daytime
+  // Nighttime fire in galamsey corridor = much more suspicious
+  if (isNight && frpVal > 2.0) firmsRaw = Math.min(firmsRaw * 1.45, 1.0);
+
+  // Extreme brightness = intense sustained fire (not a cooking fire)
+  if (bright > 370) firmsRaw = Math.min(firmsRaw * 1.25, 1.0);
+  if (bright > 400) firmsRaw = Math.min(firmsRaw * 1.15, 1.0);
+
+  // Seasonal penalty: daytime signal during dry/fire season gets discounted
+  if (!isNight && _naimosIsBushFireSeason(month, lat) && corridorWeight < 0.7) {
+    firmsRaw *= 0.55; // heavy discount — likely agricultural burn
+  }
+
+  // Apply corridor weight: northern savannah signals are heavily discounted
+  firmsRaw *= corridorWeight;
+
+  // ── STEP 4: River-proximity turbidity proxy ───────────────────────────────
+  // Galamsey near water = turbidity + mercury contamination = very strong signal
+  const computedTurbid = turbidScore > 0 ? turbidScore
+    : riverProxScore * 0.7;  // proxy when no real turbidity data
+
+  // ── STEP 5: Weighted fusion score (matches 5-layer model in fuseMultiSourceIncidents) ──
+  const score =
+    (ndviScore      * 0.30) +
+    (sarScore       * 0.25) +
+    (computedTurbid * 0.25) +
+    (firmsRaw       * 0.12) +
+    (lulcScore      * 0.08);
+
+  // ── STEP 6: Corridor bonus (spatial certainty) ────────────────────────────
+  const finalScore = Math.min(score * (0.7 + corridorWeight * 0.3), 1.0);
+
+  // ── STEP 7: Confidence % and status derivation ────────────────────────────
+  const multiSourceActive = ndviScore > 0 || sarScore > 0 || turbidScore > 0 || lulcScore > 0;
+  const firmsOnly = !multiSourceActive;
+
+  let conf, label, colour;
+  if (finalScore >= 0.75) {
+    conf = Math.round(75 + (finalScore - 0.75) * 96); label = 'CRITICAL'; colour = '#FF3B3B';
+  } else if (finalScore >= 0.55) {
+    conf = Math.round(55 + (finalScore - 0.55) * 100); label = 'WARNING';  colour = '#FF8C00';
+  } else if (finalScore >= 0.35) {
+    conf = Math.round(35 + (finalScore - 0.35) * 100); label = 'PREDICTED'; colour = '#4A9EFF';
+  } else if (finalScore >= 0.15) {
+    conf = Math.round(15 + (finalScore - 0.15) * 100); label = 'MONITORED'; colour = '#D4A017';
+  } else {
+    conf = Math.max(5, Math.round(finalScore * 100)); label = 'LOW'; colour = '#00D4AA';
+  }
+
+  // ── FIRMS-only escalation cap ─────────────────────────────────────────────
+  // Without NDVI/SAR corroboration, FIRMS cannot prove something is galamsey —
+  // it could be charcoal/crop burn that passed the exclusion filter.
+  if (firmsOnly) {
+    if (label === 'CRITICAL') { label = 'PREDICTED'; conf = Math.min(conf, 52); colour = '#4A9EFF'; }
+    if (label === 'WARNING')  { label = 'PREDICTED'; conf = Math.min(conf, 50); colour = '#4A9EFF'; }
+    // Additional night + river bonus: if nighttime AND within 0.15° of river, allow up to WARNING
+    if (isNight && river && river.dist < 0.15 && frpVal >= 4.0 && corridorWeight >= 0.75) {
+      label = 'WARNING'; conf = Math.min(60, conf + 8); colour = '#FF8C00';
+    }
+  }
+
+  return {
+    score:         finalScore,
+    confidence:    conf,
+    label,
+    colour,
+    firmsOnly,
+    excluded:      false,
+    corridorWeight,
+    riverName:     river?.name || null,
+    riverDist:     river?.dist || null,
+    isNight,
+    frpMW:         frpVal
+  };
 }
 
 // ─── updateMapTopBarConf — refresh the live-feed bar with latest detection data ──
@@ -10229,12 +10779,19 @@ async function fetchFIRMSSilent() {
       if (!raw || raw.length < 50) continue;
       const parsed = parseCSV(raw);
       if (parsed.length) {
+        const currentMonth = new Date().getMonth() + 1;
         parsed.forEach(r => {
           r.region = classifyRegion(r.lat, r.lon);
-          r.risk   = galamseyRisk(r.frp, r.daynight, r.brightness);
+          // galamseyRisk is called in parseCSV with coordinates, but re-apply if missing
+          if (!r.risk) {
+            r.risk = galamseyRisk(r.frp, r.daynight, r.brightness, {
+              lat: r.lat, lon: r.lon, month: currentMonth, confidence: r.confidence
+            });
+          }
         });
-        window.firmsRawData     = parsed;
+        window.firmsRawData      = parsed;
         window.firmsFilteredData = [...parsed];
+        console.log(`[NAIMOS FIRMS Silent] ${parsed.length} actionable hotspots (excluded: ${(window._firmsExcluded||[]).length})`);
         return parsed;
       }
     } catch(_) {}
@@ -10244,16 +10801,29 @@ async function fetchFIRMSSilent() {
 
 /**
  * synthesiseFIRMSIncidents — converts raw FIRMS thermal hotspots into
- * structured galamsey incident records using spatial clustering and FRP scoring.
+ * structured galamsey incident records using spatial clustering, corridor weights,
+ * river proximity, temporal context, and multi-factor false-positive exclusion.
+ *
+ * NOTE: By the time data reaches this function, hard exclusions (charcoal/bush fires)
+ * have already been applied by parseCSV(). This function applies cluster-level scoring
+ * and generates PREDICTED-only incidents for FIRMS (multi-source corroboration required
+ * to escalate to WARNING or CRITICAL).
  */
 function synthesiseFIRMSIncidents(firmsData) {
   if (!firmsData.length) return [];
 
-  // Cluster nearby hotspots (within 0.05° ≈ 5.5 km) into single incidents
+  const currentMonth = new Date().getMonth() + 1;
+
+  // ── Pre-filter: remove any excluded rows that slipped through ────────────
+  const validData = firmsData.filter(r => !r._excluded && r.risk && !r.risk.excluded);
+
+  if (!validData.length) return [];
+
+  // ── Spatial clustering (within 0.05° ≈ 5.5 km) ───────────────────────────
   const clusters = [];
   const used = new Set();
+  const sorted = [...validData].sort((a,b) => b.frp - a.frp);
 
-  const sorted = [...firmsData].sort((a,b) => b.frp - a.frp);
   sorted.forEach((point, idx) => {
     if (used.has(idx)) return;
     const cluster = [point];
@@ -10268,74 +10838,117 @@ function synthesiseFIRMSIncidents(firmsData) {
     clusters.push(cluster);
   });
 
-  // Convert each cluster into an incident record
+  // ── Convert each cluster into an incident record ─────────────────────────
   return clusters.slice(0, 25).map((cluster, idx) => {
-    const maxFRP    = Math.max(...cluster.map(c=>c.frp));
-    const avgFRP    = cluster.reduce((s,c)=>s+c.frp,0)/cluster.length;
-    const centLat   = cluster.reduce((s,c)=>s+c.lat,0)/cluster.length;
-    const centLon   = cluster.reduce((s,c)=>s+c.lon,0)/cluster.length;
-    const region    = cluster[0].region;
-    const dates     = cluster.map(c=>c.date).filter(Boolean).sort();
-    const lastDate  = dates[dates.length-1] || '—';
-    const lastTime  = cluster.find(c=>c.date===lastDate)?.time || '—';
-    const nightPct  = cluster.filter(c=>c.daynight==='N').length/cluster.length;
-    const highConf  = cluster.filter(c=>c.confidence==='h'||c.confidence==='n'||parseFloat(c.confidence)>=80).length;
+    const maxFRP    = Math.max(...cluster.map(c => c.frp));
+    const avgFRP    = cluster.reduce((s,c) => s + c.frp, 0) / cluster.length;
+    const centLat   = cluster.reduce((s,c) => s + c.lat, 0) / cluster.length;
+    const centLon   = cluster.reduce((s,c) => s + c.lon, 0) / cluster.length;
+    const region    = cluster[0].region || classifyRegion(centLat, centLon);
+    const dates     = cluster.map(c => c.date).filter(Boolean).sort();
+    const lastDate  = dates[dates.length - 1] || '—';
+    const lastTime  = cluster.find(c => c.date === lastDate)?.time || '—';
+    const nightPct  = cluster.filter(c => c.daynight === 'N').length / cluster.length;
+    const highConf  = cluster.filter(c =>
+      c.confidence === 'h' || c.confidence === 'n' || parseFloat(c.confidence) >= 80
+    ).length;
 
-    // Risk classification
-    let status, confidence, threatType;
-    if (maxFRP >= 10) {
-      status = 'CRITICAL'; confidence = Math.min(99, 80 + Math.round(highConf/cluster.length*19));
-    } else if (maxFRP >= 4) {
-      status = 'CRITICAL'; confidence = Math.min(95, 70 + Math.round(highConf/cluster.length*25));
-    } else if (maxFRP >= 2) {
-      status = 'WARNING'; confidence = Math.min(88, 60 + Math.round(highConf/cluster.length*28));
-    } else if (maxFRP >= 0.8) {
-      status = cluster.length >= 3 ? 'WARNING' : 'PREDICTED';
-      confidence = 55 + Math.round(Math.random()*15);
+    // ── Cluster-level galamsey scoring ─────────────────────────────────────
+    // Use corridor weight and river proximity of the cluster centroid
+    const corridorW = _naimosCorridorWeight(centLat, centLon);
+    const river     = _naimosNearestRiver(centLat, centLon);
+    const riverDist = river?.dist || 999;
+    const nearRiver = riverDist < 0.35;
+
+    // Cluster-level FRP signal
+    const clusterFRPScore = Math.min(maxFRP / 20.0, 1.0) * corridorW;
+    const nightBonus      = nightPct >= 0.5 ? 1.3 : 1.0; // majority nighttime detections
+    const riverBonus      = nearRiver ? (1.0 + (0.35 - riverDist) / 0.35 * 0.3) : 1.0;
+    const clusterSize     = Math.min(cluster.length / 5.0, 1.0); // more points = stronger signal
+
+    // FIRMS-only cluster score — this stays low until NDVI/SAR corroborates
+    const firmsClusterScore = Math.min(
+      clusterFRPScore * nightBonus * riverBonus * (0.7 + clusterSize * 0.3),
+      0.52  // Hard cap: FIRMS alone cannot exceed PREDICTED
+    );
+
+    // ── Status classification ───────────────────────────────────────────────
+    let status, confidence, colour;
+
+    if (firmsClusterScore >= 0.45) {
+      // Strong signal: high FRP, night, river-adjacent, primary corridor → PREDICTED+
+      status     = 'PREDICTED';
+      confidence = Math.round(45 + firmsClusterScore * 12);
+      colour     = '#4A9EFF';
+      // Night + river + high FRP in primary corridor: allow WARNING (actionable)
+      if (nightPct >= 0.6 && nearRiver && maxFRP >= 4.0 && corridorW >= 0.80) {
+        status     = 'WARNING';
+        confidence = Math.round(56 + firmsClusterScore * 10);
+        colour     = '#FF8C00';
+      }
+    } else if (firmsClusterScore >= 0.28) {
+      status     = 'PREDICTED';
+      confidence = Math.round(35 + firmsClusterScore * 20);
+      colour     = '#4A9EFF';
+    } else if (firmsClusterScore >= 0.12) {
+      status     = 'MONITORED';
+      confidence = Math.round(20 + firmsClusterScore * 40);
+      colour     = '#D4A017';
     } else {
-      status = 'MONITORED'; confidence = 45 + Math.round(Math.random()*20);
+      status     = 'MONITORED';
+      confidence = Math.round(10 + firmsClusterScore * 30);
+      colour     = '#D4A017';
     }
 
-    // Threat type from spatial context
-    const nearWater = cluster.some(c=>{
-      const rivers=[{lat:5.8,lon:-1.7},{lat:6.2,lon:-0.9},{lat:5.2,lon:-2.5},{lat:5.8,lon:-0.4},{lat:6.0,lon:-2.2}];
-      return rivers.some(rv=>Math.abs(c.lat-rv.lat)<0.4&&Math.abs(c.lon-rv.lon)<0.4);
-    });
-    const inForest = region === 'Western' || region === 'Ashanti' || region === 'Eastern';
-    if (nearWater && inForest) threatType = 'LAND + WATER';
-    else if (nearWater)        threatType = 'RIVER';
-    else if (inForest)         threatType = 'FOREST + LAND';
-    else                       threatType = 'LAND';
+    // Confidence precision: factor in high-confidence sensor readings
+    const sensorConf = highConf / cluster.length;
+    confidence = Math.round(confidence * (0.85 + sensorConf * 0.15));
+    confidence = Math.max(10, Math.min(confidence, status === 'WARNING' ? 68 : 54));
 
-    // Estimated area from cluster size (rough proxy: cluster_count * 0.5 ha)
-    const areaHa = (cluster.length * 0.5).toFixed(1);
+    // ── Threat type from spatial context ────────────────────────────────────
+    const inForestBelt = ['Western','Ashanti','Eastern','Central','Western North','Ahafo'].includes(region);
+    let threatType;
+    if (nearRiver && inForestBelt) threatType = 'RIVERINE GALAMSEY';
+    else if (nearRiver)            threatType = 'RIVER VICINITY';
+    else if (inForestBelt)         threatType = 'FOREST LAND';
+    else                           threatType = 'LAND / THERMAL';
 
-    // Human-readable location from region + coordinates
+    // ── Estimated area (conservative: cluster size × FIRMS pixel footprint) ─
+    // VIIRS pixel: 375m × 375m ≈ 0.14 ha per detection
+    const areaHa = (cluster.length * 0.14).toFixed(1);
+
     const locationName = getLocationName(centLat, centLon, region);
-
-    // Age string from most recent detection
-    const ageStr = lastDate && lastDate !== '—'
-      ? getAgeString(new Date(lastDate + 'T' + (lastTime !== '—' ? lastTime.replace(':','') + '00' : '120000') + 'Z'))
+    const ageStr       = lastDate && lastDate !== '—'
+      ? getAgeString(new Date(lastDate + 'T120000Z'))
       : '—';
 
-    const sitePrefix = status === 'PREDICTED' || status === 'MONITORED'
-      ? `PRED-${region.slice(0,1)}${String(idx+1).padStart(2,'0')}`
-      : `SITE-${region.slice(0,1)}${String(idx+1).padStart(2,'0')}`;
+    const sitePrefix = status === 'MONITORED'
+      ? `MON-${region.slice(0,1)}${String(idx+1).padStart(2,'0')}`
+      : `FIRMS-${region.slice(0,1)}${String(idx+1).padStart(2,'0')}`;
 
     return {
-      id: sitePrefix,
-      location: locationName,
+      id:          sitePrefix,
+      location:    locationName,
       region,
       status,
       confidence,
       areaHa,
       threatType,
-      source: `NASA FIRMS VIIRS`,
-      lastUpdate: ageStr,
-      lat: +centLat.toFixed(4),
-      lon: +centLon.toFixed(4),
+      source:      `NASA FIRMS VIIRS · ${cluster.length}pt cluster`,
+      lastUpdate:  ageStr,
+      lat:         +centLat.toFixed(4),
+      lon:         +centLon.toFixed(4),
       maxFRP,
-      clusterSize: cluster.length
+      avgFRP:      +avgFRP.toFixed(2),
+      clusterSize: cluster.length,
+      nightPct:    +(nightPct * 100).toFixed(0),
+      nearRiver,
+      riverName:   river?.name || null,
+      riverDist:   river ? +riverDist.toFixed(3) : null,
+      corridorWeight: +corridorW.toFixed(2),
+      // Signal for fuseMultiSourceIncidents: FIRMS-only = capped, needs corroboration
+      sourceLayer: 'FIRMS',
+      firmsOnly:   true
     };
   });
 }
@@ -11498,7 +12111,7 @@ window.addEventListener('load', () => {
 function fixMobileMapCenter() {
   // Leaflet handles its own resize — just invalidate size
   if (_naimosMap) {
-    _naimosMap.invalidateSize();
+    _naimosResizeMap();
   }
 }
 
@@ -11567,7 +12180,7 @@ document.addEventListener('DOMContentLoaded', () => {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       setTimeout(() => {
-        if (window._naimosMap) window._naimosMap.invalidateSize({ animate: false });
+        _naimosResizeMap();
       }, 350);
     });
   });
@@ -12177,7 +12790,7 @@ async function sendExpandedMessage() {
 
   if (window.location.protocol === 'file:') {
     appendMsgBoth(
-      '⚠ AI chat requires a server to keep the API key secure.\n\nOptions:\n• Deploy to Vercel (recommended — AI works automatically)\n• Local dev: npm i -g vercel → vercel dev → open http://localhost:3000',
+      '⚠ AI chat requires a server to keep the API key secure. Deploy to Vercel — AI works automatically.',
       'ai'
     );
     return;
@@ -12274,6 +12887,27 @@ let   _opsClockTick   = null;
 // Computed from _opsDeployMap for rendering
 function _opsAllDeploys() { return Object.values(_opsDeployMap); }
 
+// ── Expose core ops functions on window so all wrappers/IIFEs can call them ──
+// This prevents the silent-fail when cleanMockedDeployments uses window._opsRenderDeployTable
+window._opsDeployMap        = _opsDeployMap;   // shared reference
+window._opsAllDeploys       = _opsAllDeploys;
+
+// ── SESSION PERSISTENCE — survives page refresh within the same browser tab ──
+// Loads previously logged manual deployments from sessionStorage on startup.
+// Auto-generated (_auto) satellite entries are NOT persisted (they rebuild from live data).
+(function _opsRestoreSession() {
+  try {
+    var saved = sessionStorage.getItem('naimos_manual_deployments');
+    if (!saved) return;
+    var entries = JSON.parse(saved);
+    if (!Array.isArray(entries)) return;
+    entries.forEach(function(d) {
+      if (d && d.id && !d._auto) _opsDeployMap[d.id] = d;
+    });
+    console.log('[NAIMOS OPS] Restored ' + entries.length + ' manual deployment(s) from session.');
+  } catch(e) { /* sessionStorage unavailable */ }
+})();
+
 // ── Deterministic callsign from type + location (no random duplicates) ──
 function _opsGenId(type, location, index) {
   const prefix = { air:'AIR', ground:'GND', water:'WTR', legal:'LEG', intel:'INT' };
@@ -12329,17 +12963,16 @@ function _opsRenderActivityFeed() {
 // FIRMS data is loaded. No auto-generated entries appear without live data.
 // Manual deployments added by the user via "+ ASSIGN ACTIVITY" are always kept.
 function _opsBuildDeployments(firmsData, incidents) {
-  const fd  = firmsData || [];
-  const inc = incidents  || [];
-  const now = Date.now();
-  const ts  = now - 3600000;
-
-  // ── ABORT: Never auto-generate entries without real FIRMS data ─────────
-  // Only user-entered deployments (no _auto flag) should show when no sat data
-  if (!fd.length) {
-    console.log('[NAIMOS OPS] No FIRMS data — skipping auto-deployment generation. Only manual entries shown.');
-    return;
-  }
+  // ── PERMANENTLY DISABLED: No auto/satellite deployments ever appear.
+  //    The tracker shows ONLY user-logged entries via + LOG DEPLOYMENT.
+  //    Purge any _auto entries that may have leaked from old code paths.
+  Object.keys(_opsDeployMap).forEach(function(k) {
+    if (_opsDeployMap[k] && _opsDeployMap[k]._auto) delete _opsDeployMap[k];
+  });
+  return;
+  // ── DEAD CODE — kept to avoid reference errors in callers ──
+  const fd = firmsData || []; const inc = incidents || [];
+  if (!fd.length) { return; }
 
   const SITES = [
     { key:'TKW', name:'Tarkwa–Bogoso',       region:'Western Region',  lat:5.30, lon:-1.99 },
@@ -12490,22 +13123,32 @@ function _opsBuildDeployments(firmsData, incidents) {
   });
 }
 
-// ── Render deployment table ──
+// ── Render deployment table — USER LOGS ONLY, never auto/mocked entries ──
 function _opsRenderDeployTable() {
   const tbody = document.getElementById('ops-deploy-tbody');
   if (!tbody) return;
 
+  // Purge any _auto entries that slipped in (defensive)
+  Object.keys(_opsDeployMap).forEach(function(k) {
+    if (_opsDeployMap[k] && _opsDeployMap[k]._auto) delete _opsDeployMap[k];
+  });
+
   const typeFilter   = (document.getElementById('ops-filter-type')?.value)   || 'all';
   const statusFilter = (document.getElementById('ops-filter-status')?.value) || 'all';
-  const all = _opsAllDeploys();
 
-  const filtered = all.filter(d => {
+  // Only manual entries — _auto flag must be false/absent
+  const manual = Object.values(_opsDeployMap).filter(d => !d._auto);
+
+  const filtered = manual.filter(d => {
     if (typeFilter   !== 'all' && d.type   !== typeFilter)   return false;
     if (statusFilter !== 'all' && d.status !== statusFilter) return false;
     return true;
   });
 
-  if (!filtered.length) {
+  const statusEl = document.getElementById('ops-deploy-status-txt');
+  const dotEl    = document.getElementById('ops-deploy-dot');
+
+  if (!manual.length) {
     tbody.innerHTML = `<tr>
       <td colspan="10" style="text-align:center;padding:40px 24px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-muted);">
         <div style="margin-bottom:10px;font-size:26px;opacity:0.5;">◎</div>
@@ -12516,15 +13159,16 @@ function _opsRenderDeployTable() {
         </div>
       </td>
     </tr>`;
-    const statusEl = document.getElementById('ops-deploy-status-txt');
-    const dotEl    = document.getElementById('ops-deploy-dot');
     if (dotEl)    dotEl.className = 'pulse-dot gold';
     if (statusEl) statusEl.textContent = '0 UNITS LOGGED · USE + LOG DEPLOYMENT TO ADD FIELD TEAMS';
+    _opsSaveSession();
     return;
   }
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:20px;font-family:'Share Tech Mono',monospace;font-size:10px;">No deployments match current filters.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:24px;font-family:'Share Tech Mono',monospace;font-size:10px;">No deployments match the current filters.</td></tr>`;
+    if (dotEl)    dotEl.className = 'pulse-dot gold';
+    if (statusEl) statusEl.textContent = `0 SHOWN · ${manual.length} TOTAL LOGGED (filtered out)`;
     return;
   }
 
@@ -12534,7 +13178,8 @@ function _opsRenderDeployTable() {
 
   tbody.innerHTML = filtered.map(d => {
     const elapsed = Math.floor((now - d.deployedAt) / 60000);
-    const elStr   = elapsed < 60 ? `${elapsed}m` : `${Math.floor(elapsed/60)}h ${elapsed%60}m`;
+    const elStr   = elapsed < 60 ? `${elapsed}m ago` : `${Math.floor(elapsed/60)}h ${elapsed%60}m ago`;
+    const safeId  = d.id.replace(/'/g, "\'");
     return `<tr style="border-left:3px solid ${priBdr[d.priority]||'transparent'};">
       <td style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gold);white-space:nowrap;">${d.id}</td>
       <td style="font-size:11px;white-space:nowrap;">${d.typeLabel}</td>
@@ -12543,21 +13188,53 @@ function _opsRenderDeployTable() {
       <td style="font-size:10.5px;color:var(--text-secondary);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.assignment}">${d.assignment}</td>
       <td><span class="status-badge ${statusCls[d.status]||'pending'}">${d.status.toUpperCase()}</span></td>
       <td style="font-family:'Share Tech Mono',monospace;font-size:9.5px;color:var(--orange-warn);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.trigger}">${d.trigger}</td>
-      <td style="font-family:'Share Tech Mono',monospace;font-size:9.5px;color:var(--text-muted);white-space:nowrap;">${elStr} ago</td>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:9.5px;color:var(--text-muted);white-space:nowrap;">${elStr}</td>
       <td style="font-family:'Share Tech Mono',monospace;font-size:9.5px;color:var(--blue-info);white-space:nowrap;">${d.eta}</td>
-      <td style="white-space:nowrap;">
-        <button class="ops-row-btn update" onclick="opsUpdateDeployment('${d.id}')">✏ UPDATE</button>
-        <button class="ops-row-btn recall" onclick="opsRecallDeployment('${d.id}')">✕ RECALL</button>
+      <td style="white-space:nowrap;display:flex;gap:4px;align-items:center;padding:6px 8px;">
+        <button class="ops-row-btn update" onclick="opsUpdateDeployment('${safeId}')">✏ UPDATE</button>
+        <button class="ops-row-btn delete" onclick="opsDeleteDeployment('${safeId}')">🗑 DELETE</button>
       </td>
     </tr>`;
   }).join('');
 
-  const total = all.length;
-  const statusEl = document.getElementById('ops-deploy-status-txt');
-  const dotEl    = document.getElementById('ops-deploy-dot');
   if (dotEl)    dotEl.className = 'pulse-dot green';
-  if (statusEl) statusEl.textContent = `${filtered.length} UNIT(S) SHOWN · ${total} TOTAL DEPLOYED · SYNCED FROM SATELLITE DATA`;
+  if (statusEl) statusEl.textContent = `${filtered.length} UNIT(S) SHOWN · ${manual.length} TOTAL LOGGED`;
+
+  _opsSaveSession();
 }
+
+// ── Save only manual entries to sessionStorage ──
+function _opsSaveSession() {
+  try {
+    var manualEntries = Object.values(_opsDeployMap).filter(function(d){ return !d._auto; });
+    sessionStorage.setItem('naimos_manual_deployments', JSON.stringify(manualEntries));
+  } catch(e) { /* sessionStorage unavailable */ }
+}
+
+// ── Delete a single deployment by ID ──
+function opsDeleteDeployment(id) {
+  const d = _opsDeployMap[id];
+  if (!d) return;
+  if (!confirm('Delete deployment ' + id + ' from ' + d.location + '?\n\nThis cannot be undone.')) return;
+  delete _opsDeployMap[id];
+  _opsPushActivity('<b>' + id + '</b> deleted from deployment log', 'warning', d.region || '');
+  _opsRenderDeployTable();
+}
+
+// ── Clear ALL user-logged deployments ──
+function opsClearAllDeployments() {
+  const manual = Object.values(_opsDeployMap).filter(function(d){ return !d._auto; });
+  if (!manual.length) { alert('No logged deployments to clear.'); return; }
+  if (!confirm('Clear ALL ' + manual.length + ' logged deployment(s)?\n\nThis cannot be undone.')) return;
+  manual.forEach(function(d) { delete _opsDeployMap[d.id]; });
+  try { sessionStorage.removeItem('naimos_manual_deployments'); } catch(e) {}
+  _opsPushActivity('<b>ALL DEPLOYMENTS CLEARED</b> — deployment log reset by operator', 'warning', manual.length + ' entries removed');
+  _opsRenderDeployTable();
+}
+
+// ── Expose on window so all IIFEs and wrappers can call it reliably ──
+window._opsRenderDeployTable = _opsRenderDeployTable;
+window._opsBuildDeployments  = _opsBuildDeployments;
 
 // ── Update capability status cards ──
 function _opsUpdateCapabilityCards(firmsData, incidents) {
@@ -12723,22 +13400,21 @@ function opsRefreshAll() {
   const fd  = window.firmsData        || [];
   const inc = window._intelIncidents  || [];
 
-  // Build / enrich deployments (map-keyed, no duplicates)
-  _opsBuildDeployments(fd, inc);
+  // NOTE: _opsBuildDeployments is intentionally NOT called here.
+  // Only user-logged entries are shown — no auto/satellite-inferred deployments.
   _opsRenderDeployTable();
   _opsUpdateCapabilityCards(fd, inc);
   _opsRenderPlannedOps(fd, inc);
 
-  const total = _opsAllDeploys().length;
-  _opsPushActivity(
-    `<b>NAIMOS OPS ENGINE</b> — Dashboard synced. ${total} active units tracked.`,
-    'info', `${fd.length} FIRMS pts · ${inc.length} incidents`
-  );
-
-  const statusEl = document.getElementById('ops-deploy-status-txt');
-  const dotEl    = document.getElementById('ops-deploy-dot');
-  if (dotEl)    dotEl.className = 'pulse-dot green';
-  if (statusEl) statusEl.textContent = `${total} UNITS TRACKED · LIVE · UPDATED ${new Date().toUTCString().slice(17,25)} UTC`;
+  // Status footer is fully managed by _opsRenderDeployTable
+  // Only push an activity entry if there's something meaningful
+  const manual = Object.values(_opsDeployMap).filter(function(d){ return !d._auto; });
+  if (manual.length > 0) {
+    _opsPushActivity(
+      '<b>OPS DASHBOARD</b> — Refreshed. ' + manual.length + ' user-logged unit(s) in tracker.',
+      'info', fd.length + ' FIRMS pts · ' + inc.length + ' incidents'
+    );
+  }
 }
 
 function opsFilterDeployments() { _opsRenderDeployTable(); }
@@ -12906,11 +13582,8 @@ function _opsAutoActivityFromFIRMS(fd) {
     if (fd.length > 0 && fd.length !== _opsLastFirms) {
       _opsLastFirms = fd.length;
       _opsAutoActivityFromFIRMS(fd);
-      // Re-enrich auto deployments with real data (keep manual ones)
-      Object.keys(_opsDeployMap).forEach(k => {
-        if (_opsDeployMap[k]._auto) delete _opsDeployMap[k];
-      });
-      _opsBuildDeployments(fd, inc);
+      // NOTE: _opsBuildDeployments is intentionally NOT called here.
+      // The deployment table shows only user-logged entries — never auto-generated.
       _opsRenderDeployTable();
       _opsUpdateCapabilityCards(fd, inc);
       _opsRenderPlannedOps(fd, inc);
@@ -12959,7 +13632,8 @@ document.getElementById('ops-assign-modal')?.addEventListener('click', e => {
 </script>
 <!-- ═══════════════════════════════════════════════════════════════════════════
   NAIMOS AMS — COMPREHENSIVE PATCH SCRIPT
-  Inject this <script> block just before 
+  Inject this &lt;script&gt; block just before &lt;/body&gt;
+-->
 <!-- ═══════════════════════════════════════════════════════════════
      NAIMOS NUCLEAR MAP BOOT — completely self-contained
      Runs last, after ALL other scripts, guarantees map appears
@@ -13580,26 +14254,16 @@ async function fetchOpsNews() {
       });
     }
 
-    // After cleaning, re-render from real data only
-    const fd  = window.firmsData || window.firmsRawData || [];
-    const inc = window._intelIncidents || [];
-    if (typeof window._opsBuildDeployments === 'function' && fd.length > 0) {
-      window._opsBuildDeployments(fd, inc);
-    }
+    // Re-render from user-logged entries only (no auto build)
     if (typeof window._opsRenderDeployTable === 'function') {
       window._opsRenderDeployTable();
     }
 
-    // Show a "no deployments" message if table is empty after cleanup
+    // "no deployments" placeholder is handled by _opsRenderDeployTable itself
     const tbodys = document.querySelectorAll('#ops-deploy-tbody, #ops-table-body');
     tbodys.forEach(tbody => {
       if (tbody && tbody.querySelectorAll('tr').length === 0) {
-        tbody.innerHTML = `<tr>
-          <td colspan="10" style="text-align:center;padding:28px;
-            font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-muted);">
-            No active deployments. Fetch FIRMS data or compute Intelligence to generate satellite-driven deployment recommendations.
-          </td>
-        </tr>`;
+        tbody.innerHTML = '';
       }
     });
   }
@@ -13617,6 +14281,9 @@ async function fetchOpsNews() {
   }
   
   // ── Wire up ops tab activation ──
+  // NOTE: cleanMockedDeployments() removed from switchTab hook — it was
+  // overwriting user deployments and using window._opsRenderDeployTable
+  // which was undefined. Stats fetch and status bar injection are kept.
   const origSwitchTab = window.switchTab;
   if (typeof origSwitchTab === 'function') {
     window.switchTab = function(tab) {
@@ -13625,7 +14292,10 @@ async function fetchOpsNews() {
         setTimeout(() => {
           injectOpsStatusBar();
           fetchAndRenderNaimosStats();
-          cleanMockedDeployments();
+          // Safe re-render via properly exposed window function
+          if (typeof window._opsRenderDeployTable === 'function') {
+            window._opsRenderDeployTable();
+          }
         }, 200);
       }
     };
@@ -13831,6 +14501,100 @@ async function fetchOpsNews() {
       box-shadow: 0 0 5px #FF3B3B;
       animation: firms-pulse 1.5s ease-in-out infinite;
     }
+
+    /* ── Active detection highlight ── */
+    .naimos-sat-entry.feed-active {
+      background: rgba(255,59,59,0.08) !important;
+      border-left: 2px solid #FF3B3B;
+      padding-left: 9px;
+    }
+    .naimos-sat-entry.feed-active .naimos-sat-loc { color: #FF3B3B; }
+    .naimos-sat-entry.feed-active .naimos-sat-dot {
+      animation: feed-dot-blink 0.7s ease-in-out infinite !important;
+    }
+    @keyframes feed-dot-blink {
+      0%, 100% { opacity: 1; transform: scale(1.3); }
+      50%       { opacity: 0.3; transform: scale(0.8); }
+    }
+
+    /* ── Red targeting rings (DOM overlay on MapLibre) ── */
+    .naimos-target-ring-wrap {
+      position: relative;
+      width: 0; height: 0;
+      pointer-events: none;
+    }
+    .naimos-target-core {
+      position: absolute;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #FF3B3B;
+      border: 2px solid #fff;
+      box-shadow: 0 0 14px 4px rgba(255,59,59,0.85), 0 0 4px rgba(255,59,59,1);
+      transform: translate(-50%, -50%);
+      animation: target-core-pulse 0.9s ease-in-out infinite;
+    }
+    @keyframes target-core-pulse {
+      0%, 100% { box-shadow: 0 0 14px 4px rgba(255,59,59,0.85); transform: translate(-50%,-50%) scale(1); }
+      50%       { box-shadow: 0 0 28px 8px rgba(255,59,59,0.5); transform: translate(-50%,-50%) scale(1.15); }
+    }
+    .naimos-ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 2px solid #FF3B3B;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .naimos-ring-1 { width: 42px; height: 42px; animation: ring-expand 2.0s ease-out infinite; }
+    .naimos-ring-2 { width: 42px; height: 42px; animation: ring-expand 2.0s ease-out 0.65s infinite; }
+    .naimos-ring-3 { width: 42px; height: 42px; animation: ring-expand 2.0s ease-out 1.30s infinite; }
+    @keyframes ring-expand {
+      0%   { transform: translate(-50%,-50%) scale(0.3); opacity: 0.9; border-width: 2.5px; }
+      70%  { opacity: 0.35; border-width: 1px; }
+      100% { transform: translate(-50%,-50%) scale(3.2); opacity: 0; border-width: 0.5px; }
+    }
+    /* Crosshair lines */
+    .naimos-crosshair {
+      position: absolute;
+      transform: translate(-50%, -50%);
+    }
+    .naimos-crosshair::before, .naimos-crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(255,59,59,0.6);
+    }
+    .naimos-crosshair::before { width: 1px; height: 40px; left: 0; top: -20px; }
+    .naimos-crosshair::after  { width: 40px; height: 1px; left: -20px; top: 0; }
+
+    /* Label on ring */
+    .naimos-target-label {
+      position: absolute;
+      transform: translate(10px, -50%);
+      left: 22px; top: 0;
+      font-family: 'Orbitron', monospace;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #FF3B3B;
+      white-space: nowrap;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.95), 0 0 10px rgba(255,59,59,0.5);
+      animation: label-blink 1.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes label-blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+    .naimos-target-coords {
+      position: absolute;
+      transform: translate(10px, 8px);
+      left: 22px; top: 0;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 7.5px;
+      color: rgba(255,100,100,0.8);
+      white-space: nowrap;
+      text-shadow: 0 1px 5px rgba(0,0,0,0.9);
+      pointer-events: none;
+    }
   `;
   document.head.appendChild(feedStyle);
   
@@ -13968,8 +14732,10 @@ async function fetchOpsNews() {
     const confColor = conf => conf >= 75 ? '#FF3B3B' : conf >= 55 ? '#FF8C00' : conf >= 35 ? '#4A9EFF' : '#D4A017';
     const sourceLabel = src => ({ firms:'VIIRS', s2:'S-2', s1:'SAR', gee:'GEE', pc:'PC' }[src] || 'SAT');
     
-    panel.innerHTML = topN.map(e => `
-      <div class="naimos-sat-entry" onclick="naimosMapFlyTo(${e.lat||7.9},${e.lon||-1.0},10)" title="Fly to ${e.loc}">
+    panel.innerHTML = topN.map((e,i) => `
+      <div class="naimos-sat-entry" data-feed-idx="${i}" data-lat="${e.lat||7.9}" data-lon="${e.lon||-1.0}" data-loc="${(e.loc||'').replace(/"/g,'&quot;')}" data-conf="${e.conf||0}" data-source="${e.source||'sat'}" data-status="${e.status||'monitored'}"
+           onclick="naimosDetectionFlyTo(this)"
+           title="🎯 Focus map on: ${e.loc}">
         <div class="naimos-sat-dot ${e.status === 'firms' ? 'firms' : e.status}"></div>
         <div class="naimos-sat-info">
           <div class="naimos-sat-loc">${e.loc}</div>
@@ -15495,7 +16261,7 @@ body { min-height: 100%; overflow-x: hidden; }
  * Replaces ALL direct Sentinel Hub API calls and the hardcoded
  * instance ID (a91a47a9-...) with secure backend-proxied requests.
  *
- * Drop this entire <script> block into index.html just before </body>,
+ * Drop this entire &lt;script&gt; block into index.html just before &lt;/body&gt;,
  * after the existing script blocks. It overwrites the broken functions.
  *
  * Backend endpoints consumed:
@@ -15840,8 +16606,8 @@ window.showSentinelFallback    = (type, bbox, label) => loadSentinelLayer(type, 
     // Leaflet map resize when surveillance map tab becomes visible
     if (tab === 'map') {
       setTimeout(() => {
-        if (window._naimosMap) window._naimosMap.invalidateSize({animate:false});
-        setTimeout(() => { if (window._naimosMap) window._naimosMap.invalidateSize({animate:false}); }, 400);
+        _naimosResizeMap();
+        setTimeout(() => { _naimosResizeMap(); }, 400);
       }, 120);
     }
   };
@@ -15943,14 +16709,29 @@ window.fetchFIRMSData = async function fetchFIRMSData() {
  
     rows.forEach(r => {
       if (typeof classifyRegion === 'function') r.region = classifyRegion(r.lat, r.lon);
-      if (typeof galamseyRisk   === 'function') r.risk   = galamseyRisk(r.frp, r.daynight, r.brightness);
+      // galamseyRisk is now called in parseCSV with lat/lon context already.
+      // Re-apply here only if risk is missing (e.g. data loaded outside parseCSV).
+      if (!r.risk && typeof galamseyRisk === 'function') {
+        r.risk = galamseyRisk(r.frp, r.daynight, r.brightness, {
+          lat:   r.lat,
+          lon:   r.lon,
+          month: new Date().getMonth() + 1,
+          confidence: r.confidence
+        });
+      }
     });
- 
+
+    // Track exclusion stats for display
+    const excluded = window._firmsExcluded || [];
+    const totalRaw = rows.length + excluded.length;
+    const excNote  = excluded.length > 0
+      ? ` · ${excluded.length} non-galamsey excluded (charcoal/agri/bush fires)`
+      : '';
     window.firmsData         = rows;
     window.firmsRawData      = rows;
     window.firmsFilteredData = [...rows];
  
-    setStatus('success', `✓ ${rows.length} thermal hotspots · Ghana · ${new Date().toUTCString().slice(17, 25)} UTC`);
+    setStatus('success', `✓ ${rows.length} actionable hotspots · Ghana · ${new Date().toUTCString().slice(17, 25)} UTC${excNote}`);
  
     // Update the proxy bar badge
     const badge = document.getElementById('proxy-firms');
@@ -16354,22 +17135,15 @@ console.log('%c NAIMOS · CORS Fix Patch · FIRMS + Copernicus + GEE routed via 
   };
 
   // ── Active galamsey hotspot markers ──────────────────────────────
-  var HOTSPOTS = [
-    {lat:5.95, lng:-1.62, label:'Tarkwa',    risk:'CRITICAL', frp:14.1},
-    {lat:6.70, lng:-1.62, label:'Obuasi',    risk:'CRITICAL', frp:18.4},
-    {lat:5.50, lng:-1.40, label:'Prestea',   risk:'HIGH',     frp:8.2 },
-    {lat:6.12, lng:-0.52, label:'Kibi',      risk:'HIGH',     frp:5.1 },
-    {lat:6.22, lng:-1.85, label:'Dunkwa',    risk:'HIGH',     frp:4.8 },
-    {lat:6.42, lng:-1.30, label:'Assin',     risk:'HIGH',     frp:3.9 },
-    {lat:7.18, lng:-2.22, label:'Goaso',     risk:'MODERATE', frp:1.4 },
-    {lat:7.35, lng:-1.62, label:'Kenyasi',   risk:'MODERATE', frp:2.1 },
-    {lat:6.48, lng:-1.62, label:'Bibiani',   risk:'MODERATE', frp:1.8 }
-  ];
+  // PRODUCTION: Hardcoded static markers removed. Map populates from
+  // live NASA FIRMS data via plotFIRMSOnMap() and plotIntelOnMap().
+  // Fetch live data using the FIRMS tab to see real-time detections.
+  var HOTSPOTS = [];
 
   // ── Main init function ───────────────────────────────────────────
   function init() {
     if (window._NAIMOS_MAP_INSTANCE) {
-      if (window._naimosMap) window._naimosMap.invalidateSize({animate:false});
+      _naimosResizeMap();
       return;
     }
     if (window._NAIMOS_MAP_BOOTING) return;
@@ -16387,7 +17161,7 @@ console.log('%c NAIMOS · CORS Fix Patch · FIRMS + Copernicus + GEE routed via 
     // Guard against Leaflet already owning this container
     if (lm._leaflet_id) {
       window._NAIMOS_MAP_INSTANCE = true;
-      if (window._naimosMap) window._naimosMap.invalidateSize({animate:false});
+      _naimosResizeMap();
       return;
     }
 
@@ -16495,7 +17269,7 @@ console.log('%c NAIMOS · CORS Fix Patch · FIRMS + Copernicus + GEE routed via 
       _naimosIntelLayer = intelLayer;
 
       // ── Multi-stage invalidateSize (catches deferred layout) ────
-      var fire = function() { if (map) map.invalidateSize({animate:false}); };
+      var fire = function() { if (map) _naimosResizeMap(map); };
       fire(); requestAnimationFrame(fire);
       [80,200,500,1000,2000].forEach(function(ms){ setTimeout(fire, ms); });
 
@@ -16556,7 +17330,7 @@ console.log('%c NAIMOS · CORS Fix Patch · FIRMS + Copernicus + GEE routed via 
   window.addEventListener('load', function() {
     setTimeout(function() {
       if (!window._NAIMOS_MAP_INSTANCE) init();
-      else if (window._naimosMap) window._naimosMap.invalidateSize({animate:false});
+      else _naimosResizeMap();
     }, 500);
   });
 
@@ -16573,24 +17347,12 @@ console.log('%c NAIMOS · CORS Fix Patch · FIRMS + Copernicus + GEE routed via 
 var _map = null, _ready = false, _style = 'dark', _heatOn = false, _popup = null;
 var _incidents = [], _firms = [];
 
-var HOTSPOTS = [
-  {id:'W-01',lat:5.31,lon:-2.08,name:'Tarkwa',region:'Western',risk:'CRITICAL',frp:18.4,conf:94},
-  {id:'W-02',lat:5.57,lon:-1.98,name:'Prestea',region:'Western',risk:'CRITICAL',frp:14.1,conf:91},
-  {id:'W-03',lat:5.88,lon:-2.47,name:'Bogoso',region:'Western',risk:'CRITICAL',frp:11.2,conf:88},
-  {id:'W-04',lat:5.19,lon:-2.35,name:'Nsuta',region:'Western',risk:'WARNING',frp:7.4,conf:76},
-  {id:'A-01',lat:6.20,lon:-1.67,name:'Obuasi',region:'Ashanti',risk:'CRITICAL',frp:16.8,conf:96},
-  {id:'A-02',lat:6.38,lon:-1.52,name:'Kumawu',region:'Ashanti',risk:'CRITICAL',frp:12.3,conf:89},
-  {id:'A-03',lat:6.70,lon:-1.62,name:'Kumasi NW',region:'Ashanti',risk:'WARNING',frp:6.1,conf:74},
-  {id:'E-01',lat:6.17,lon:-0.52,name:'Kibi',region:'Eastern',risk:'WARNING',frp:8.2,conf:78},
-  {id:'E-02',lat:5.93,lon:-0.99,name:'Oda',region:'Eastern',risk:'WARNING',frp:6.5,conf:73},
-  {id:'C-01',lat:5.97,lon:-1.78,name:'Dunkwa',region:'Central',risk:'WARNING',frp:7.1,conf:75},
-  {id:'C-02',lat:5.69,lon:-1.32,name:'Assin Fosu',region:'Central',risk:'PREDICTED',frp:2.8,conf:58},
-  {id:'B-01',lat:7.34,lon:-2.33,name:'Sunyani Area',region:'Bono/Ahafo',risk:'PREDICTED',frp:2.1,conf:55},
-  {id:'WN-01',lat:6.32,lon:-2.62,name:'Bibiani',region:'Western North',risk:'WARNING',frp:5.2,conf:68},
-  {id:'V-01',lat:6.63,lon:0.47,name:'Ho Area',region:'Volta',risk:'MONITORED',frp:0.8,conf:44},
-  {id:'N-01',lat:9.41,lon:-0.85,name:'Tamale',region:'Northern',risk:'MONITORED',frp:0.6,conf:40},
-  {id:'WN-03',lat:5.85,lon:-2.95,name:'Sefwi Bekwai',region:'Western North',risk:'CONTAINED',frp:0,conf:20}
-];
+// ── PRODUCTION: No hardcoded hotspot markers ──────────────────────────────
+// All map markers are derived from live NASA FIRMS data (window.firmsRawData)
+// and real satellite intelligence (window._intelIncidents).
+// Click "FETCH LIVE DATA" on the FIRMS tab to populate the map with real detections.
+// Static fallback markers removed to prevent display of stale/inaccurate data.
+var HOTSPOTS = [];  // populated at runtime by plotFIRMSOnMap() / plotIntelOnMap()
 
 var RC = {CRITICAL:'#FF3B3B',WARNING:'#FF8C00',PREDICTED:'#4A9EFF',MONITORED:'#00D4AA',CONTAINED:'#00FF88'};
 
@@ -16840,6 +17602,211 @@ function plotFirms(pts) {
 }
 
 window.naimosMapFlyTo = function(lat,lon,zoom){ if(_map) _map.flyTo({center:[lon,lat],zoom:zoom||10,duration:900}); };
+
+// ── NAIMOS DETECTION FLY-TO + RED CIRCLING ANIMATION SYSTEM ─────────────────
+// Called when user clicks a LIVE DETECTION FEED entry.
+// 1. Switches to map tab
+// 2. Flies the camera precisely to the detection coords
+// 3. Spawns animated red concentric rings + crosshair + label at the exact point
+// 4. Highlights the clicked feed row and clears previous selection
+// 5. Rings keep blinking until another entry is clicked or map is panned away
+(function() {
+  'use strict';
+
+  // Internal state
+  var _activeMarker   = null;   // maplibregl.Marker for the ring overlay
+  var _activeEntry    = null;   // currently highlighted .naimos-sat-entry DOM element
+  var _activePopup    = null;   // maplibregl.Popup
+  var _clearTimer     = null;   // auto-clear after 30s of inactivity
+
+  // ── Build the ring DOM element ──────────────────────────────────────────
+  function buildRingEl(loc, lat, lon, conf, status) {
+    var ringColor = status === 'critical' ? '#FF3B3B'
+                  : status === 'warning'  ? '#FF8C00'
+                  : status === 'predicted'? '#4A9EFF'
+                  : '#FF3B3B'; // default red for FIRMS / unknown
+
+    var wrap = document.createElement('div');
+    wrap.className = 'naimos-target-ring-wrap';
+
+    // Three expanding rings (staggered delay via CSS classes)
+    ['naimos-ring naimos-ring-1','naimos-ring naimos-ring-2','naimos-ring naimos-ring-3'].forEach(function(cls) {
+      var r = document.createElement('div');
+      r.className = cls;
+      r.style.borderColor = ringColor;
+      r.style.boxShadow   = '0 0 8px ' + ringColor;
+      wrap.appendChild(r);
+    });
+
+    // Crosshair
+    var ch = document.createElement('div');
+    ch.className = 'naimos-crosshair';
+    ch.style.setProperty('--ch-color', ringColor);
+    ch.style.cssText += 'color:' + ringColor + ';';
+    // override pseudo-element color via inline style on both lines
+    ch.style.setProperty('background', ringColor);
+    // Actually set crosshair color via a data attribute + inline CSS trick:
+    ch.setAttribute('style',
+      'position:absolute;transform:translate(-50%,-50%);' +
+      '--ch:' + ringColor + ';'
+    );
+    // Add actual lines as child divs (avoid pseudo-element color limitation)
+    var vLine = document.createElement('div');
+    vLine.style.cssText = 'position:absolute;width:1px;height:36px;background:' + ringColor + ';opacity:0.55;left:0;top:-18px;';
+    var hLine = document.createElement('div');
+    hLine.style.cssText = 'position:absolute;height:1px;width:36px;background:' + ringColor + ';opacity:0.55;left:-18px;top:0;';
+    ch.appendChild(vLine);
+    ch.appendChild(hLine);
+    wrap.appendChild(ch);
+
+    // Solid core dot
+    var core = document.createElement('div');
+    core.className = 'naimos-target-core';
+    core.style.background    = ringColor;
+    core.style.boxShadow     = '0 0 14px 4px ' + ringColor + ', 0 0 4px ' + ringColor;
+    core.style.borderColor   = '#fff';
+    wrap.appendChild(core);
+
+    // Location label
+    var lbl = document.createElement('div');
+    lbl.className   = 'naimos-target-label';
+    lbl.textContent = (loc || 'DETECTION').toUpperCase().slice(0, 28);
+    lbl.style.color = ringColor;
+    lbl.style.textShadow = '0 1px 6px rgba(0,0,0,0.95), 0 0 10px ' + ringColor;
+    wrap.appendChild(lbl);
+
+    // Coordinate sub-label
+    var coords = document.createElement('div');
+    coords.className   = 'naimos-target-coords';
+    coords.textContent = parseFloat(lat).toFixed(4) + (lat>=0?'N':'S') + '  ' + Math.abs(parseFloat(lon)).toFixed(4) + (lon>=0?'E':'W');
+    coords.style.color = 'rgba(255,100,100,0.75)';
+    wrap.appendChild(coords);
+
+    return wrap;
+  }
+
+  // ── Spawn popup ──────────────────────────────────────────────────────────
+  function spawnPopup(lat, lon, loc, conf, source, status) {
+    if (_activePopup) { try { _activePopup.remove(); } catch(e) {} _activePopup = null; }
+    if (!_map || !_map.getContainer) return;
+
+    var srcLabel  = {firms:'VIIRS FIRMS',s2:'Sentinel-2',s1:'SAR Sentinel-1',gee:'GEE NDVI',pc:'Planetary Computer'}[source] || 'Satellite';
+    var riskLabel = status === 'critical' ? 'CRITICAL' : status === 'warning' ? 'WARNING' : status === 'predicted' ? 'PREDICTED' : 'MONITORED';
+    var riskColor = status === 'critical' ? '#FF3B3B' : status === 'warning' ? '#FF8C00' : status === 'predicted' ? '#4A9EFF' : '#00D4AA';
+
+    var html =
+      '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;color:#D4A017;letter-spacing:2px;margin-bottom:8px;">🎯 DETECTION LOCKED</div>' +
+      '<div style="font-family:\'Share Tech Mono\',monospace;font-size:11px;font-weight:600;color:#E8E4D8;margin-bottom:6px;">' + (loc || 'Unknown Location') + '</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-family:\'Share Tech Mono\',monospace;font-size:10px;">' +
+        '<tr><td style="color:#3D4560;padding:2px 0;">STATUS</td><td style="color:' + riskColor + ';font-weight:700;padding:2px 0 2px 8px;">' + riskLabel + '</td></tr>' +
+        '<tr><td style="color:#3D4560;padding:2px 0;">SOURCE</td><td style="color:#E8E4D8;padding:2px 0 2px 8px;">' + srcLabel + '</td></tr>' +
+        '<tr><td style="color:#3D4560;padding:2px 0;">CONFIDENCE</td><td style="color:' + riskColor + ';padding:2px 0 2px 8px;">' + (conf || '—') + '%</td></tr>' +
+        '<tr><td style="color:#3D4560;padding:2px 0;">COORDS</td><td style="color:#E8E4D8;padding:2px 0 2px 8px;font-size:9px;">' + parseFloat(lat).toFixed(5) + 'N  ' + Math.abs(parseFloat(lon)).toFixed(5) + 'W</td></tr>' +
+        '<tr><td style="color:#3D4560;padding:2px 0;">UPDATED</td><td style="color:#E8E4D8;padding:2px 0 2px 8px;">' + new Date().toUTCString().slice(17,25) + ' UTC</td></tr>' +
+      '</table>';
+
+    _activePopup = new maplibregl.Popup({
+      className:   'naimos-ml-popup',
+      maxWidth:    '290px',
+      offset:      22,
+      closeButton: true
+    }).setLngLat([parseFloat(lon), parseFloat(lat)])
+      .setHTML(html)
+      .addTo(_map);
+
+    _activePopup.on('close', function() { _activePopup = null; });
+  }
+
+  // ── Clear all active rings & highlights ──────────────────────────────────
+  function clearActiveTarget() {
+    if (_activeMarker)  { try { _activeMarker.remove(); } catch(e) {} _activeMarker = null; }
+    if (_activePopup)   { try { _activePopup.remove();  } catch(e) {} _activePopup  = null; }
+    if (_activeEntry)   { _activeEntry.classList.remove('feed-active'); _activeEntry = null; }
+    if (_clearTimer)    { clearTimeout(_clearTimer); _clearTimer = null; }
+  }
+
+  // ── Main public function — called by onclick on each feed entry ───────────
+  window.naimosDetectionFlyTo = function(el) {
+    var lat    = parseFloat(el.dataset.lat)   || 7.9;
+    var lon    = parseFloat(el.dataset.lon)   || -1.0;
+    var loc    = el.dataset.loc               || 'Detection';
+    var conf   = parseInt(el.dataset.conf)    || 0;
+    var source = el.dataset.source            || 'sat';
+    var status = el.dataset.status            || 'monitored';
+
+    // Guard: must have valid real coords
+    if (isNaN(lat) || isNaN(lon) || (lat === 7.9 && lon === -1.0 && !el.dataset.lat)) {
+      console.warn('[NAIMOS] Detection has no coordinates — cannot target');
+      return;
+    }
+
+    // 1. Switch to map tab so the map is visible
+    if (typeof switchTab === 'function') switchTab('map');
+
+    // 2. Clear previous target
+    clearActiveTarget();
+
+    // 3. Highlight this feed entry
+    document.querySelectorAll('.naimos-sat-entry').forEach(function(e) {
+      e.classList.remove('feed-active');
+    });
+    el.classList.add('feed-active');
+    _activeEntry = el;
+
+    // 4. Fly the camera — use a small delay to let the tab switch complete
+    setTimeout(function() {
+      if (!_map) return;
+
+      var zoom = Math.max(_map.getZoom(), 11);  // zoom in but respect current if already close
+      _map.flyTo({
+        center:   [lon, lat],
+        zoom:     zoom,
+        duration: 1100,
+        curve:    1.4,
+        easing:   function(t){ return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }  // ease-in-out
+      });
+
+      // 5. Spawn ring overlay after fly starts (slight delay for render stability)
+      setTimeout(function() {
+        if (!_map) return;
+
+        // Build ring DOM
+        var ringEl = buildRingEl(loc, lat, lon, conf, status);
+
+        // Place as MapLibre marker so it stays geo-anchored through pan/zoom
+        _activeMarker = new maplibregl.Marker({
+          element: ringEl,
+          anchor:  'center',
+          offset:  [0, 0]
+        }).setLngLat([lon, lat]).addTo(_map);
+
+        // 6. Show popup
+        spawnPopup(lat, lon, loc, conf, source, status);
+
+        // 7. Auto-clear rings after 30 seconds (clean up, but keep popup)
+        _clearTimer = setTimeout(function() {
+          if (_activeMarker) { try { _activeMarker.remove(); } catch(e) {} _activeMarker = null; }
+          if (_activeEntry)  { _activeEntry.classList.remove('feed-active'); _activeEntry = null; }
+        }, 30000);
+
+      }, 350);
+
+    }, typeof switchTab === 'function' ? 280 : 50);
+  };
+
+  // ── Clear rings when user pans away manually ─────────────────────────────
+  // (rings stay through camera fly — only clear on user-initiated drag)
+  setTimeout(function() {
+    if (_map && _map.on) {
+      _map.on('dragstart', function() {
+        // Keep marker but remove highlight after drag (non-destructive)
+        if (_activeEntry) { _activeEntry.classList.remove('feed-active'); _activeEntry = null; }
+      });
+    }
+  }, 2000);  // wait for map to be ready
+
+})();
+
 window.naimosUpdateMarkerCount = updateCount;
 window.addNaimosIncidentMarker = function(o){ if(!o||!o.lat||!o.lon||!_map) return null; plotIncidents([{lat:o.lat,lon:o.lon,status:o.risk||'MONITORED',id:o.title||'INC',location:o.title,region:'Ghana',confidence:50}]); return true; };
 window.intelRowClick = function(id,lat,lon){ if(!lat||!lon) return; if(typeof switchTab==='function') switchTab('map'); setTimeout(function(){ if(_map) _map.flyTo({center:[lon,lat],zoom:10,duration:900}); },300); };
@@ -17890,6 +18857,82 @@ setInterval(function() {
   overflow: hidden !important;
   height: 100% !important;
   flex: 1 1 0 !important;
+}
+
+/* ── OPS DEPLOY TABLE: guaranteed visible at ALL zoom levels (30–200%) ──
+   Mirrors the sentinel/gee viewer !important override strategy exactly.
+   The table container must never collapse inside the ops-layout flex column.
+*/
+#ops-deploy-table-wrap,
+.ops-deploy-table-wrap {
+  display: block !important;
+  visibility: visible !important;
+  position: relative !important;
+  width: 100% !important;
+  min-height: 220px !important;       /* absolute floor — never zero even at 30% zoom */
+  height: auto !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  -webkit-overflow-scrolling: touch !important;
+  flex-shrink: 0 !important;          /* never let flex crush the table section */
+}
+
+/* The outer card that wraps the whole deployment tracker */
+#tab-ops .ops-layout > div:has(#ops-deploy-table-wrap),
+#tab-ops .ops-layout > div:has(#ops-deploy-table) {
+  flex-shrink: 0 !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+
+/* The table itself: always wide enough to be readable */
+#ops-deploy-table {
+  min-width: 780px !important;
+  width: 100% !important;
+  table-layout: auto !important;
+}
+
+/* Ensure table cells never get font-size crushed by zoom */
+#ops-deploy-table th,
+#ops-deploy-table td {
+  white-space: nowrap;
+}
+
+/* ── Responsive: mobile portrait ── */
+@media (max-width: 640px) {
+  #ops-deploy-table-wrap,
+  .ops-deploy-table-wrap {
+    min-height: 160px !important;
+  }
+  #ops-deploy-table {
+    min-width: 540px !important;
+  }
+  /* On small screens: hide less critical columns (assignment + logged-at) */
+  #ops-deploy-table thead th:nth-child(5),
+  #ops-deploy-table tbody td:nth-child(5),
+  #ops-deploy-table thead th:nth-child(8),
+  #ops-deploy-table tbody td:nth-child(8) {
+    display: none !important;
+  }
+}
+
+/* ── Responsive: tablet ── */
+@media (min-width: 641px) and (max-width: 1024px) {
+  #ops-deploy-table-wrap,
+  .ops-deploy-table-wrap {
+    min-height: 180px !important;
+  }
+  #ops-deploy-table {
+    min-width: 680px !important;
+  }
+}
+
+/* ── Large desktop ── */
+@media (min-width: 1400px) {
+  #ops-deploy-table-wrap,
+  .ops-deploy-table-wrap {
+    min-height: 260px !important;
+  }
 }
 </style>
 
